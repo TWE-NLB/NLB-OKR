@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NLB OKR-Messung</title>
+  <meta name="description" content="Optokinetischer Reflex: Streifenband mit Augen-Tracking über die Frontkamera">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OKR">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <button id="back" class="btn ghost" hidden>‹ Übersicht</button>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>OKR-Messung</div>
+    <div class="topbar-meta" id="topmeta"></div>
+  </header>
+
+  <main id="main">
+    <!-- Übersicht -->
+    <section id="v-home" class="view">
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Personen</h2>
+          <form id="person-form" class="row">
+            <label for="person-name" class="sr">Pseudonym oder Kürzel</label>
+            <input id="person-name" placeholder="Pseudonym oder Kürzel, z. B. P01" autocomplete="off" maxlength="40" required>
+            <button class="btn" type="submit">Anlegen</button>
+          </form>
+          <ul id="person-list" class="list"></ul>
+          <p class="hint">Bitte nur Pseudonyme verwenden. Alle Daten bleiben auf diesem Gerät.</p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Messungen</h2>
+            <div class="row tight">
+              <label class="btn ghost" for="import-file">Importieren</label>
+              <input id="import-file" type="file" accept=".json,application/json" multiple hidden>
+              <button id="export-all" class="btn ghost" type="button">Alle exportieren</button>
+            </div>
+          </div>
+          <ul id="measure-list" class="list"></ul>
+          <div class="row sticky-actions">
+            <button id="compare-btn" class="btn" type="button" disabled>Vergleichen</button>
+            <span class="hint" id="compare-hint">Mindestens zwei Messungen anhaken.</span>
+          </div>
+        </div>
+      </div>
+
+      <details class="panel help">
+        <summary>So funktioniert die Messung</summary>
+        <ol>
+          <li><b>Person wählen</b> und Einstellungen prüfen.</li>
+          <li><b>Setup-Check:</b> Licht, Gesicht, Abstand und Ruhe müssen grün sein.</li>
+          <li><b>Kalibrierung:</b> Ein Punkt springt Mitte, links, rechts, oben, unten. Nur mit den Augen folgen. Erst wenn die Kalibrierung OK ist, startet die Messung.</li>
+          <li><b>Messung:</b> Das Streifenband läuft in jede Richtung mit jeder Geschwindigkeit. Entspannt auf die Streifen schauen. Antippen pausiert.</li>
+          <li><b>Ergebnis:</b> Gain (Augengeschwindigkeit ÷ Streifengeschwindigkeit), Schlagfrequenz, Amplitude, Asymmetrie. Danach exportieren: <i>Teilen → In „Dateien“ sichern</i>, AirDrop oder SeaFile.</li>
+        </ol>
+        <p class="hint">Tipp: Über <i>Teilen → Zum Home-Bildschirm</i> läuft die App im Vollbild. Safari kann Website-Daten nach längerer Nichtnutzung löschen. Deshalb Messungen regelmäßig exportieren.</p>
+      </details>
+    </section>
+
+    <!-- Einstellungen vor der Messung -->
+    <section id="v-setup" class="view" hidden>
+      <div class="panel narrow">
+        <h2>Neue Messung · <span id="setup-person"></span></h2>
+        <form id="setup-form" class="form">
+          <fieldset>
+            <legend>Haltung</legend>
+            <div class="seg">
+              <input type="radio" name="mode" id="mode-stand" value="stand"><label for="mode-stand">Ständer</label>
+              <input type="radio" name="mode" id="mode-hand" value="hand"><label for="mode-hand">In der Hand</label>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="distance">Abstand Auge–Bildschirm</label>
+            <div class="unit"><input id="distance" type="number" inputmode="decimal" min="20" max="80" step="1"><span>cm</span></div>
+          </div>
+          <div class="field">
+            <label for="device">Gerät</label>
+            <select id="device"></select>
+          </div>
+          <div class="field" id="ppi-field">
+            <label for="ppi">Bildpunkte pro Zoll</label>
+            <div class="unit"><input id="ppi" type="number" min="80" max="300" step="1"><span>pt/in</span></div>
+          </div>
+          <fieldset>
+            <legend>Richtungen</legend>
+            <div class="chips">
+              <input type="checkbox" id="dir-L"><label for="dir-L">← links</label>
+              <input type="checkbox" id="dir-R"><label for="dir-R">→ rechts</label>
+              <input type="checkbox" id="dir-U"><label for="dir-U">↑ oben</label>
+              <input type="checkbox" id="dir-D"><label for="dir-D">↓ unten</label>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="speeds">Geschwindigkeiten</label>
+            <div class="unit"><input id="speeds" inputmode="decimal" placeholder="10, 20, 30"><span>°/s</span></div>
+          </div>
+          <div class="field">
+            <label for="block-sec">Dauer je Block</label>
+            <div class="unit"><input id="block-sec" type="number" min="5" max="30" step="1"><span>s</span></div>
+          </div>
+          <div class="field">
+            <label for="period">Streifenbreite (Paar schwarz + weiß)</label>
+            <div class="unit"><input id="period" type="number" min="1" max="20" step="0.5"><span>°</span></div>
+          </div>
+          <div class="field">
+            <label for="order">Reihenfolge</label>
+            <select id="order">
+              <option value="speed">je Geschwindigkeit alle Richtungen</option>
+              <option value="dir">je Richtung alle Geschwindigkeiten</option>
+            </select>
+          </div>
+          <p class="plan" id="plan-summary"></p>
+          <div class="row">
+            <button class="btn primary" type="submit">Weiter zum Setup-Check</button>
+          </div>
+          <p class="error" id="setup-error" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Setup-Check mit Kamerabild -->
+    <section id="v-check" class="view" hidden>
+      <div class="check-layout">
+        <div class="cam-box" id="cam-box"><div class="cam-status" id="cam-status">Kamera wird gestartet …</div></div>
+        <div class="panel">
+          <h2>Setup-Check</h2>
+          <ul class="checks" id="checks"></ul>
+          <label class="confirm"><input type="checkbox" id="dist-confirm"> Abstand ist gemessen: <b id="dist-target"></b></label>
+          <div class="row">
+            <button id="start-calib" class="btn primary" type="button" disabled>Kalibrierung starten</button>
+          </div>
+          <p class="hint" id="check-hint">iPad quer, Kamera auf Augenhöhe, Licht von vorne. Abstand mit Lineal oder Maßband messen.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ergebnis einer Messung -->
+    <section id="v-result" class="view" hidden></section>
+
+    <!-- Vergleich -->
+    <section id="v-compare" class="view" hidden></section>
+  </main>
+
+  <!-- Vollbild-Ebene für Kalibrierung und Messung -->
+  <div id="fs" hidden>
+    <canvas id="stage"></canvas>
+    <div id="hud" hidden></div>
+    <div id="overlay" hidden></div>
+  </div>
+
+  <video id="cam" playsinline muted autoplay class="cam-off"></video>
+  <div id="rotate" hidden><div>Bitte das Gerät ins Querformat drehen.</div></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
