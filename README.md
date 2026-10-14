@@ -42,6 +42,10 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
   - Etwa 30 Bilder/s: Die schnellen Phasen werden nur grob erfasst, die langsame Phase und damit der Gain gut.
   - Das ist kein Medizinprodukt.
 
+## Dokumentation
+
+[docs/NLB-OKR_Dokumentation.docx](docs/NLB-OKR_Dokumentation.docx) erklärt die App und alle Messwerte, mit Bezug zu Hirnbereichen und Augenmuskeln und 39 PubMed-Quellen. Neu erzeugen mit `python3 docs/make_doc.py docs/NLB-OKR_Dokumentation.docx` (benötigt `python-docx`).
+
 ## Entwicklung
 
 Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Auswertungstests:
