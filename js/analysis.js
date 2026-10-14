@@ -2,10 +2,10 @@
 // Konvention: Winkel in Grad, +x = Bildschirm rechts, +y = Bildschirm unten (aus Sicht der Testperson).
 
 export const DIRS = {
-  L: { key: 'L', axis: 'x', sign: -1, arrow: '←', label: 'nach links' },
-  R: { key: 'R', axis: 'x', sign: 1, arrow: '→', label: 'nach rechts' },
-  U: { key: 'U', axis: 'y', sign: -1, arrow: '↑', label: 'nach oben' },
-  D: { key: 'D', axis: 'y', sign: 1, arrow: '↓', label: 'nach unten' },
+  L: { key: 'L', axis: 'x', sign: -1, arrow: '←', label: 'nach links', labelEn: 'leftward' },
+  R: { key: 'R', axis: 'x', sign: 1, arrow: '→', label: 'nach rechts', labelEn: 'rightward' },
+  U: { key: 'U', axis: 'y', sign: -1, arrow: '↑', label: 'nach oben', labelEn: 'upward' },
+  D: { key: 'D', axis: 'y', sign: 1, arrow: '↓', label: 'nach unten', labelEn: 'downward' },
 };
 export const DIR_ORDER = ['L', 'R', 'U', 'D'];
 
@@ -54,6 +54,8 @@ export function linfit(xs, ys) {
 // opts.mode: 'stand' | 'hand'
 export function fitCalibration(points, opts = {}) {
   const issues = [];
+  const codes = []; // sprachunabhängige Kennung je Problem (für die englische Oberfläche)
+  const issue = (code, text) => { codes.push(code); issues.push(text); };
   const pts = points.map((p) => {
     const v = p.samples.filter((s) => s.valid);
     return {
@@ -69,7 +71,7 @@ export function fitCalibration(points, opts = {}) {
 
   const weak = pts.filter((p) => p.frac < 0.6 || p.n < 5);
   if (weak.length) {
-    issues.push(`Bei ${weak.length} von ${pts.length} Punkten wurden die Augen zu selten erkannt. Mehr Licht, Gesicht mittig halten, spiegelnde Brille ggf. abnehmen.`);
+    issue(`weak:${weak.length}/${pts.length}`, `Bei ${weak.length} von ${pts.length} Punkten wurden die Augen zu selten erkannt. Mehr Licht, Gesicht mittig halten, spiegelnde Brille ggf. abnehmen.`);
   }
 
   const usable = pts.filter((p) => p.n >= 5);
@@ -89,10 +91,10 @@ export function fitCalibration(points, opts = {}) {
   const sepY = sep(V, 'fy', 'sdy', 'ty');
 
   if (!(fx.r2 >= 0.8) || !(sepX >= 4)) {
-    issues.push('Links/rechts-Bewegung der Augen wurde nicht sauber erkannt. Bitte den Punkten nur mit den Augen folgen, den Kopf nicht drehen.');
+    issue('horizontal', 'Links/rechts-Bewegung der Augen wurde nicht sauber erkannt. Bitte den Punkten nur mit den Augen folgen, den Kopf nicht drehen.');
   }
   if (!(fy.r2 >= 0.7) || !(sepY >= 3)) {
-    issues.push('Oben/unten-Bewegung der Augen wurde nicht sauber erkannt. Augen weit genug öffnen, Licht von vorne, Kopf gerade halten.');
+    issue('vertical', 'Oben/unten-Bewegung der Augen wurde nicht sauber erkannt. Augen weit genug öffnen, Licht von vorne, Kopf gerade halten.');
   }
 
   const centers = usable.filter((p) => p.tx === 0 && p.ty === 0);
@@ -100,7 +102,7 @@ export function fitCalibration(points, opts = {}) {
   const cyDeg = centers.map((p) => fy.a + fy.b * p.fy);
   const centerSdX = sd(cxDeg), centerSdY = sd(cyDeg);
   if (centerSdX > 1.5 || centerSdY > 2.5) {
-    issues.push('Der Mittelpunkt wurde nicht gleichmäßig angeschaut. Bitte bei jedem Punkt ruhig fixieren.');
+    issue('center', 'Der Mittelpunkt wurde nicht gleichmäßig angeschaut. Bitte bei jedem Punkt ruhig fixieren.');
   }
 
   const all = points.flatMap((p) => p.samples).filter((s) => s.valid);
@@ -109,7 +111,7 @@ export function fitCalibration(points, opts = {}) {
   const headMove = Math.max(range('cx'), range('cy'));
   const headLimit = opts.mode === 'hand' ? 0.6 : 0.25;
   if (headMove > headLimit) {
-    issues.push(opts.mode === 'hand'
+    issue(opts.mode === 'hand' ? 'head-hand' : 'head', opts.mode === 'hand'
       ? 'Das iPad wurde während der Kalibrierung zu stark bewegt. Bitte ruhiger halten, Ellbogen abstützen.'
       : 'Der Kopf hat sich während der Kalibrierung bewegt. Bitte Kopf stillhalten oder abstützen.');
   }
@@ -117,6 +119,7 @@ export function fitCalibration(points, opts = {}) {
   return {
     ok: issues.length === 0,
     issues,
+    codes,
     ax: fx.a, bx: fx.b, ay: fy.a, by: fy.b,
     r2x: fx.r2, r2y: fy.r2, sepX, sepY, centerSdX, centerSdY,
     headMove, scale0,

@@ -4,6 +4,8 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 
 **App öffnen:** https://twe-nlb.github.io/NLB-OKR/ (in Safari, Gerät quer halten)
 
+**Englische Version:** https://twe-nlb.github.io/NLB-OKR/EN/. Beide Versionen nutzen denselben Programmcode (`js/i18n.js` wählt die Sprache über `<html lang>`) und teilen sich auf einem Gerät dieselben Messungen.
+
 ## Ablauf
 
 1. **Person anlegen.** Bitte nur Pseudonyme verwenden.

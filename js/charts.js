@@ -1,4 +1,5 @@
 // Diagramme mit Chart.js (globales `Chart` aus index.html). Farben kommen aus den CSS-Tokens.
+import { T, LOCALE } from './i18n.js';
 
 const charts = new Map();
 
@@ -14,6 +15,7 @@ function base() {
   const ink2 = css('--ink-2');
   const grid = css('--grid');
   Chart.defaults.font.family = css('--font-body');
+  Chart.defaults.locale = LOCALE;
   Chart.defaults.color = ink2;
   return {
     animation: false,
@@ -49,7 +51,7 @@ export function destroyAll() {
   charts.clear();
 }
 
-const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
 
 // Augenposition über die Zeit für einen Block (Sägezahn)
 export function traceChart(canvas, points, axisLabel) {
@@ -57,10 +59,10 @@ export function traceChart(canvas, points, axisLabel) {
   o.plugins.legend.display = false;
   o.plugins.tooltip.callbacks = {
     title: (items) => `${fmt(items[0].parsed.x, 2)} s`,
-    label: (item) => `Auge: ${fmt(item.parsed.y, 1)}°`,
+    label: (item) => `${T('Auge', 'Eye')}: ${fmt(item.parsed.y, 1)}°`,
   };
   o.scales.x.type = 'linear';
-  o.scales.x.title = { display: true, text: 'Zeit im Block (s)' };
+  o.scales.x.title = { display: true, text: T('Zeit im Block (s)', 'Time in block (s)') };
   o.scales.y.title = { display: true, text: axisLabel };
   return make(canvas, {
     type: 'line',
@@ -88,7 +90,7 @@ export function gainChart(canvas, series, title) {
     label: (item) => `${item.dataset.label}: Gain ${fmt(item.parsed.y)}`,
   };
   o.scales.x.type = 'linear';
-  o.scales.x.title = { display: true, text: 'Streifen (°/s)' };
+  o.scales.x.title = { display: true, text: T('Streifen (°/s)', 'Stripes (°/s)') };
   const speeds = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
   o.scales.x.afterBuildTicks = (axis) => { axis.ticks = speeds.map((value) => ({ value })); };
   if (speeds.length) { o.scales.x.min = speeds[0] - 2; o.scales.x.max = speeds[speeds.length - 1] + 2; }
@@ -122,11 +124,11 @@ export function asymChart(canvas, series) {
     label: (item) => `${item.dataset.label}: ${fmt(item.parsed.y, 0)} %`,
   };
   o.scales.x.grid = { display: false };
-  o.scales.y.title = { display: true, text: 'Asymmetrie (%)' };
+  o.scales.y.title = { display: true, text: T('Asymmetrie (%)', 'Asymmetry (%)') };
   return make(canvas, {
     type: 'bar',
     data: {
-      labels: ['Horizontal (rechts vs. links)', 'Vertikal (oben vs. unten)'],
+      labels: [T('Horizontal (rechts vs. links)', 'Horizontal (right vs. left)'), T('Vertikal (oben vs. unten)', 'Vertical (up vs. down)')],
       datasets: series.map((s) => ({
         label: s.label,
         data: [s.asymH, s.asymV].map((v) => (Number.isFinite(v) ? v : null)),

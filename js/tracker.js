@@ -97,7 +97,7 @@ export class Tracker {
 
   async start(onStatus = () => {}) {
     if (this.running) { onStatus(''); return; }
-    onStatus('Kamera wird gestartet …');
+    onStatus('camera');
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
@@ -107,7 +107,7 @@ export class Tracker {
     this.video.setAttribute('playsinline', '');
     await this.video.play();
     if (!this.landmarker) {
-      onStatus('Gesichtserkennung wird geladen …');
+      onStatus('model');
       this.landmarker = await loadLandmarker();
     }
     this.running = true;

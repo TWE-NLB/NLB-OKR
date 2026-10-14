@@ -3,21 +3,26 @@ import { Tracker, Motion } from './tracker.js';
 import { Stage } from './stage.js';
 import * as store from './store.js';
 import { traceChart, gainChart, asymChart, seriesColor, destroyAll } from './charts.js';
+import { T, EN, LOCALE } from './i18n.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
+const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
 const pct = (v) => (Number.isFinite(v) ? `${Math.round(v * 100)} %` : '–');
 const signed = (v, d = 0) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + fmt(v, d) : '–');
-const dateStr = (iso) => new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const dirLabel = (d) => (EN ? DIRS[d].labelEn : DIRS[d].label);
+// Qualität wird intern deutsch gespeichert (Datenformat), angezeigt in der jeweiligen Sprache
+const qualityLabel = (q) => (EN ? { gut: 'good', 'mäßig': 'fair', 'ungültig': 'invalid' }[q] ?? q : q);
+const modeLabel = (mode) => (mode === 'hand' ? T('in der Hand', 'handheld') : T('Ständer', 'stand'));
+const dateStr = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 // ---------- Konstanten ----------
 const DEVICE_PRESETS = [
   { id: 'ipad', label: 'iPad / iPad Air / iPad Pro', ppi: 132 },
   { id: 'ipadmini', label: 'iPad mini', ppi: 163 },
-  { id: 'iphone', label: 'iPhone (aktuelle Modelle)', ppi: 153 },
+  { id: 'iphone', label: T('iPhone (aktuelle Modelle)', 'iPhone (current models)'), ppi: 153 },
   { id: 'iphonese', label: 'iPhone SE / mini', ppi: 163 },
-  { id: 'custom', label: 'Eigener Wert', ppi: null },
+  { id: 'custom', label: T('Eigener Wert', 'Custom value'), ppi: null },
 ];
 const PRE_SEC = 3;            // Pause mit Fixierkreuz vor jedem Block
 const CAL_DWELL = 1.8;        // Sekunden pro Kalibrierpunkt
@@ -119,12 +124,12 @@ function renderHome() {
   const pl = $('#person-list');
   const counts = {};
   for (const m of state.measurements) counts[m.personId] = (counts[m.personId] || 0) + 1;
-  const persons = [...state.persons].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const persons = [...state.persons].sort((a, b) => a.name.localeCompare(b.name, LOCALE));
   pl.innerHTML = persons.length ? persons.map((p) => `
     <li>
-      <div class="grow"><div class="title">${esc(p.name)}</div><div class="sub">${counts[p.id] || 0} Messung(en)</div></div>
-      <button class="btn primary" data-measure="${p.id}">Messen</button>
-    </li>`).join('') : '<li class="empty">Noch keine Person angelegt.</li>';
+      <div class="grow"><div class="title">${esc(p.name)}</div><div class="sub">${counts[p.id] || 0} ${T('Messung(en)', 'measurement(s)')}</div></div>
+      <button class="btn primary" data-measure="${p.id}">${T('Messen', 'Measure')}</button>
+    </li>`).join('') : `<li class="empty">${T('Noch keine Person angelegt.', 'No people yet.')}</li>`;
 
   const ml = $('#measure-list');
   const ms = [...state.measurements].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -133,18 +138,18 @@ function renderHome() {
     const q = s.validBlocks === s.totalBlocks ? 'good' : s.validBlocks >= s.totalBlocks / 2 ? 'warn' : 'bad';
     return `
     <li>
-      <input type="checkbox" data-select="${m.id}" aria-label="Für Vergleich auswählen" ${state.selected.has(m.id) ? 'checked' : ''}>
+      <input type="checkbox" data-select="${m.id}" aria-label="${T('Für Vergleich auswählen', 'Select for comparison')}" ${state.selected.has(m.id) ? 'checked' : ''}>
       <button class="link grow" data-open="${m.id}">
         <div class="title">${esc(m.personName)} <span class="sub">· ${dateStr(m.createdAt)}</span></div>
-        <div class="sub mono">Gain H ${fmt(s.gainH)} · V ${fmt(s.gainV)} · ${m.settings.mode === 'hand' ? 'in der Hand' : 'Ständer'}</div>
+        <div class="sub mono">Gain H ${fmt(s.gainH)} · V ${fmt(s.gainV)} · ${modeLabel(m.settings.mode)}</div>
       </button>
-      <span class="pill ${q}">${s.validBlocks}/${s.totalBlocks} Blöcke</span>
+      <span class="pill ${q}">${s.validBlocks}/${s.totalBlocks} ${T('Blöcke', 'blocks')}</span>
     </li>`;
-  }).join('') : '<li class="empty">Noch keine Messungen. Person anlegen und „Messen“ tippen, oder Dateien importieren.</li>';
+  }).join('') : `<li class="empty">${T('Noch keine Messungen. Person anlegen und „Messen“ tippen, oder Dateien importieren.', 'No measurements yet. Add a person and tap “Measure”, or import files.')}</li>`;
 
   const n = state.selected.size;
   $('#compare-btn').disabled = n < 2;
-  $('#compare-btn').textContent = n ? `Vergleichen (${n})` : 'Vergleichen';
+  $('#compare-btn').textContent = n ? `${T('Vergleichen', 'Compare')} (${n})` : T('Vergleichen', 'Compare');
   $('#compare-hint').hidden = n >= 2;
   $('#topmeta').textContent = '';
 }
@@ -153,7 +158,7 @@ $('#person-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = $('#person-name').value.trim();
   if (!name) return;
-  if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(`„${name}“ gibt es schon.`); return; }
+  if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(T(`„${name}“ gibt es schon.`, `“${name}” already exists.`)); return; }
   const p = { id: store.uid(), name, createdAt: new Date().toISOString() };
   await store.put('persons', p);
   state.persons.push(p);
@@ -181,13 +186,13 @@ $('#compare-btn').addEventListener('click', () => showCompare());
 $('#back').addEventListener('click', () => { stopTracking(); show('home'); });
 
 $('#export-all').addEventListener('click', () => {
-  if (!state.measurements.length) { toast('Es gibt noch keine Messungen.'); return; }
+  if (!state.measurements.length) { toast(T('Es gibt noch keine Messungen.', 'There are no measurements yet.')); return; }
   const bundle = { format: 'nlb-okr-bundle', version: 1, exportedAt: new Date().toISOString(), persons: state.persons, measurements: state.measurements };
   const now = new Date().toISOString();
   store.offerFiles([
-    { name: `OKR_Alle_${stamp(now)}.json`, type: 'application/json', text: JSON.stringify(bundle) },
-    { name: `OKR_Alle_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(state.measurements) },
-  ]).then((r) => r !== 'aborted' && toast('Export bereitgestellt.'));
+    { name: `OKR_${T('Alle', 'All')}_${stamp(now)}.json`, type: 'application/json', text: JSON.stringify(bundle) },
+    { name: `OKR_${T('Alle', 'All')}_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(state.measurements) },
+  ]).then((r) => r !== 'aborted' && toast(T('Export bereitgestellt.', 'Export ready.')));
 });
 
 $('#import-file').addEventListener('change', async (e) => {
@@ -210,12 +215,12 @@ $('#import-file').addEventListener('change', async (e) => {
       }
     } catch (err) {
       console.error(err);
-      toast(`„${file.name}“ ist keine OKR-Datei.`);
+      toast(T(`„${file.name}“ ist keine OKR-Datei.`, `“${file.name}” is not an OKR file.`));
     }
   }
   e.target.value = '';
   renderHome();
-  if (added || skipped) toast(`${added} Messung(en) importiert${skipped ? `, ${skipped} schon vorhanden` : ''}.`);
+  if (added || skipped) toast(T(`${added} Messung(en) importiert${skipped ? `, ${skipped} schon vorhanden` : ''}.`, `${added} measurement(s) imported${skipped ? `, ${skipped} already present` : ''}.`));
 });
 
 // ---------- Einstellungen ----------
@@ -261,8 +266,8 @@ function updatePlanSummary() {
   const plan = buildPlan(s);
   const secs = plan.length * (s.blockSec + PRE_SEC) + 9 * CAL_DWELL;
   $('#plan-summary').textContent = plan.length
-    ? `${plan.length} Blöcke, Messzeit ca. ${Math.ceil(secs / 60)} min inkl. Kalibrierung. Ablauf: ${plan.slice(0, 4).map((b) => `${DIRS[b.dir].arrow} ${b.speed}°/s`).join(', ')}${plan.length > 4 ? ' …' : ''}`
-    : 'Mindestens eine Richtung und eine Geschwindigkeit wählen.';
+    ? `${T(`${plan.length} Blöcke, Messzeit ca. ${Math.ceil(secs / 60)} min inkl. Kalibrierung. Ablauf:`, `${plan.length} blocks, about ${Math.ceil(secs / 60)} min including calibration. Sequence:`)} ${plan.slice(0, 4).map((b) => `${DIRS[b.dir].arrow} ${b.speed}°/s`).join(', ')}${plan.length > 4 ? ' …' : ''}`
+    : T('Mindestens eine Richtung und eine Geschwindigkeit wählen.', 'Choose at least one direction and one speed.');
 }
 $('#setup-form').addEventListener('input', updatePlanSummary);
 $('#setup-form').addEventListener('change', updatePlanSummary);
@@ -270,7 +275,7 @@ $('#setup-form').addEventListener('change', updatePlanSummary);
 $('#setup-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const s = readSetup();
-  if (!buildPlan(s).length) { $('#setup-error').textContent = 'Bitte mindestens eine Richtung und eine Geschwindigkeit wählen.'; $('#setup-error').hidden = false; return; }
+  if (!buildPlan(s).length) { $('#setup-error').textContent = T('Bitte mindestens eine Richtung und eine Geschwindigkeit wählen.', 'Please choose at least one direction and one speed.'); $('#setup-error').hidden = false; return; }
   saveSettings();
   // Bewegungssensor-Erlaubnis muss direkt im Klick angefragt werden (iOS)
   const motionReq = motion.request();
@@ -279,6 +284,7 @@ $('#setup-form').addEventListener('submit', (e) => {
 });
 
 // ---------- Setup-Check ----------
+const STATUS = { camera: T('Kamera wird gestartet …', 'Starting camera …'), model: T('Gesichtserkennung wird geladen …', 'Loading face detection …') };
 let checkBuf = [];
 let checkOff = null;
 let checkTimer = null;
@@ -287,21 +293,21 @@ async function startCheck(motionReq) {
   $('#dist-target').textContent = `${state.settings.distanceCm} cm`;
   $('#dist-confirm').checked = false;
   $('#cam-status').hidden = false;
-  $('#cam-status').textContent = 'Kamera wird gestartet …';
+  $('#cam-status').textContent = STATUS.camera;
   placeCam(true);
   checkBuf = [];
   try {
-    await tracker.start((msg) => { $('#cam-status').textContent = msg; $('#cam-status').hidden = !msg; });
+    await tracker.start((code) => { $('#cam-status').textContent = STATUS[code] ?? ''; $('#cam-status').hidden = !code; });
   } catch (err) {
     console.error(err);
     $('#cam-status').hidden = false;
     $('#cam-status').textContent = err.name === 'NotAllowedError'
-      ? 'Kein Kamerazugriff. Bitte in den Einstellungen → Safari → Kamera erlauben und Seite neu laden.'
-      : `Kamera oder Gesichtserkennung konnte nicht starten (${err.message || err.name}).`;
+      ? T('Kein Kamerazugriff. Bitte in den Einstellungen → Safari → Kamera erlauben und Seite neu laden.', 'No camera access. Please allow the camera under Settings → Safari → Camera and reload the page.')
+      : T(`Kamera oder Gesichtserkennung konnte nicht starten (${err.message || err.name}).`, `Camera or face detection could not start (${err.message || err.name}).`);
     return;
   }
   const motionOk = await motionReq;
-  if (!motionOk && state.settings.mode === 'hand') toast('Bewegungssensor nicht freigegeben. Wackeln wird nur über das Kamerabild erkannt.');
+  if (!motionOk && state.settings.mode === 'hand') toast(T('Bewegungssensor nicht freigegeben. Wackeln wird nur über das Kamerabild erkannt.', 'Motion sensor not allowed. Shaking is detected from the camera image only.'));
   checkOff?.();
   checkOff = tracker.on((s) => {
     checkBuf.push(s);
@@ -328,27 +334,27 @@ function evalChecks() {
   const items = [];
   const add = (label, status, val) => items.push({ label, status, val });
 
-  add('Kamera', tracker.fps >= 20 ? 'good' : tracker.fps >= 12 ? 'warn' : 'bad', `${tracker.fps} Bilder/s`);
-  add('Gesicht erkannt', faceFrac >= 0.9 ? 'good' : faceFrac >= 0.5 ? 'warn' : 'bad', pct(faceFrac));
+  add(T('Kamera', 'Camera'), tracker.fps >= 20 ? 'good' : tracker.fps >= 12 ? 'warn' : 'bad', `${tracker.fps} ${T('Bilder/s', 'fps')}`);
+  add(T('Gesicht erkannt', 'Face detected'), faceFrac >= 0.9 ? 'good' : faceFrac >= 0.5 ? 'warn' : 'bad', pct(faceFrac));
   const open = median(faces.map((s) => s.open));
-  add('Augen offen, Iris sichtbar', !faces.length ? 'bad' : open >= 0.18 ? 'good' : open >= 0.12 ? 'warn' : 'bad', fmt(open, 2));
+  add(T('Augen offen, Iris sichtbar', 'Eyes open, iris visible'), !faces.length ? 'bad' : open >= 0.18 ? 'good' : open >= 0.12 ? 'warn' : 'bad', fmt(open, 2));
   const b = tracker.brightness;
-  add('Licht', b >= 70 && b <= 230 ? 'good' : b >= 45 ? 'warn' : 'bad', Number.isFinite(b) ? `${Math.round((b / 255) * 100)} %` : '–');
+  add(T('Licht', 'Light'), b >= 70 && b <= 230 ? 'good' : b >= 45 ? 'warn' : 'bad', Number.isFinite(b) ? `${Math.round((b / 255) * 100)} %` : '–');
   if (faces.length) {
     const f = faces[faces.length - 1];
     const dx = f.cx / f.w - 0.5, dy = f.cy / f.h - 0.5;
-    add('Gesicht mittig', Math.abs(dx) < 0.25 && Math.abs(dy) < 0.3 ? 'good' : 'bad', Math.abs(dx) >= 0.25 ? (dx > 0 ? 'weiter nach links' : 'weiter nach rechts') : Math.abs(dy) >= 0.3 ? (dy > 0 ? 'Kamera tiefer' : 'Kamera höher') : 'ok');
+    add(T('Gesicht mittig', 'Face centred'), Math.abs(dx) < 0.25 && Math.abs(dy) < 0.3 ? 'good' : 'bad', Math.abs(dx) >= 0.25 ? (dx > 0 ? T('weiter nach links', 'move left') : T('weiter nach rechts', 'move right')) : Math.abs(dy) >= 0.3 ? (dy > 0 ? T('Kamera tiefer', 'camera lower') : T('Kamera höher', 'camera higher')) : 'ok');
     const sc = median(faces.map((s) => s.scale));
     const jitter = Math.max(sd(faces.map((s) => s.cx)), sd(faces.map((s) => s.cy))) / sc;
     const lim = hand ? 0.08 : 0.03;
-    add(hand ? 'Gerät ruhig gehalten' : 'Kopf ruhig', jitter < lim ? 'good' : jitter < 2 * lim ? 'warn' : 'bad', jitter < lim ? 'ruhig' : 'unruhig');
+    add(hand ? T('Gerät ruhig gehalten', 'Device held steady') : T('Kopf ruhig', 'Head steady'), jitter < lim ? 'good' : jitter < 2 * lim ? 'warn' : 'bad', jitter < lim ? T('ruhig', 'steady') : T('unruhig', 'unsteady'));
     const est = median(faces.map((s) => s.distCm));
-    add('Abstand (grobe Schätzung)', 'info', Number.isFinite(est) ? `≈ ${Math.round(est)} cm` : '–');
+    add(T('Abstand (grobe Schätzung)', 'Distance (rough estimate)'), 'info', Number.isFinite(est) ? `≈ ${Math.round(est)} cm` : '–');
   } else {
-    add('Gesicht mittig', 'bad', '–');
-    add(hand ? 'Gerät ruhig gehalten' : 'Kopf ruhig', 'bad', '–');
+    add(T('Gesicht mittig', 'Face centred'), 'bad', '–');
+    add(hand ? T('Gerät ruhig gehalten', 'Device held steady') : T('Kopf ruhig', 'Head steady'), 'bad', '–');
   }
-  if (hand) add('Bewegungssensor', motion.enabled ? 'good' : 'warn', motion.enabled ? 'aktiv' : 'nicht freigegeben');
+  if (hand) add(T('Bewegungssensor', 'Motion sensor'), motion.enabled ? 'good' : 'warn', motion.enabled ? T('aktiv', 'active') : T('nicht freigegeben', 'not allowed'));
   return items;
 }
 
@@ -358,8 +364,8 @@ function renderChecks() {
   const ok = items.every((i) => i.status !== 'bad') && $('#dist-confirm').checked && tracker.running;
   $('#start-calib').disabled = !ok;
   $('#check-hint').textContent = !$('#dist-confirm').checked && items.every((i) => i.status !== 'bad')
-    ? 'Alles grün. Bitte noch den gemessenen Abstand bestätigen.'
-    : 'iPad quer, Kamera auf Augenhöhe, Licht von vorne. Abstand mit Lineal oder Maßband messen.';
+    ? T('Alles grün. Bitte noch den gemessenen Abstand bestätigen.', 'All green. Please confirm the measured distance.')
+    : T('iPad quer, Kamera auf Augenhöhe, Licht von vorne. Abstand mit Lineal oder Maßband messen.', 'iPad in landscape, camera at eye level, light from the front. Measure the distance with a ruler or tape measure.');
 }
 
 $('#start-calib').addEventListener('click', () => {
@@ -406,10 +412,10 @@ function calTargets() {
 function startCalibration() {
   stage.fill('#7f7f7f');
   overlay(`
-    <h2>Kalibrierung</h2>
-    <p>Gleich erscheint ein Punkt, der nacheinander in der Mitte, links, rechts, oben und unten steht. <b>Bitte dem Punkt nur mit den Augen folgen</b> und ihn ruhig anschauen. Kopf nicht bewegen.</p>
-    <p class="hint">Dauer: ca. ${Math.round(CAL_SEQ.length * CAL_DWELL)} Sekunden.</p>
-    <div class="row"><button class="btn" data-act="cancel">Abbrechen</button><button class="btn primary" data-act="go">Start</button></div>`);
+    <h2>${T('Kalibrierung', 'Calibration')}</h2>
+    <p>${T('Gleich erscheint ein Punkt, der nacheinander in der Mitte, links, rechts, oben und unten steht. <b>Bitte dem Punkt nur mit den Augen folgen</b> und ihn ruhig anschauen. Kopf nicht bewegen.', 'A dot will appear in turn at the centre, left, right, top and bottom. <b>Follow the dot with your eyes only</b> and look at it steadily. Do not move your head.')}</p>
+    <p class="hint">${T(`Dauer: ca. ${Math.round(CAL_SEQ.length * CAL_DWELL)} Sekunden.`, `Duration: about ${Math.round(CAL_SEQ.length * CAL_DWELL)} seconds.`)}</p>
+    <div class="row"><button class="btn" data-act="cancel">${T('Abbrechen', 'Cancel')}</button><button class="btn primary" data-act="go">Start</button></div>`);
   $('#overlay').onclick = (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'go') { $('#overlay').hidden = true; runCalibration(); }
@@ -442,25 +448,40 @@ function runCalibration() {
   requestAnimationFrame(frame);
 }
 
+// Englische Texte zu den Kennungen aus fitCalibration
+function issueEn(code) {
+  if (code.startsWith('weak:')) {
+    const [n, total] = code.slice(5).split('/');
+    return `The eyes were detected too rarely at ${n} of ${total} points. Add more light, keep the face centred, remove reflective glasses if needed.`;
+  }
+  return {
+    horizontal: 'Left/right eye movement was not detected cleanly. Follow the dots with your eyes only; do not turn your head.',
+    vertical: 'Up/down eye movement was not detected cleanly. Open the eyes wide enough, light from the front, keep the head straight.',
+    center: 'The centre point was not looked at consistently. Please fixate each dot steadily.',
+    'head-hand': 'The iPad was moved too much during calibration. Please hold it more steadily, rest your elbows.',
+    head: 'The head moved during calibration. Please keep the head still or support it.',
+  }[code] ?? code;
+}
+
 function finishCalibration(points) {
   const res = fitCalibration(points, { mode: state.settings.mode });
   stage.fill('#7f7f7f');
   if (res.ok) {
     state.calib = res;
     overlay(`
-      <h2><span class="pill good">Kalibrierung OK</span></h2>
+      <h2><span class="pill good">${T('Kalibrierung OK', 'Calibration OK')}</span></h2>
       <dl class="kv">
-        <dt>Links/rechts</dt><dd>R² ${fmt(res.r2x)} · Trennung ${fmt(res.sepX, 1)}</dd>
-        <dt>Oben/unten</dt><dd>R² ${fmt(res.r2y)} · Trennung ${fmt(res.sepY, 1)}</dd>
-        <dt>Mitte wiederholbar</dt><dd>± ${fmt(res.centerSdX, 1)}° / ± ${fmt(res.centerSdY, 1)}°</dd>
+        <dt>${T('Links/rechts', 'Left/right')}</dt><dd>R² ${fmt(res.r2x)} · ${T('Trennung', 'separation')} ${fmt(res.sepX, 1)}</dd>
+        <dt>${T('Oben/unten', 'Up/down')}</dt><dd>R² ${fmt(res.r2y)} · ${T('Trennung', 'separation')} ${fmt(res.sepY, 1)}</dd>
+        <dt>${T('Mitte wiederholbar', 'Centre repeatable')}</dt><dd>± ${fmt(res.centerSdX, 1)}° / ± ${fmt(res.centerSdY, 1)}°</dd>
       </dl>
-      <p>Jetzt startet das Streifenband. <b>Entspannt auf die Streifen schauen</b>, ihnen folgen ist erlaubt. Antippen pausiert die Messung.</p>
-      <div class="row"><button class="btn" data-act="repeat">Neu kalibrieren</button><button class="btn primary" data-act="measure">Messung starten</button></div>`);
+      <p>${T('Jetzt startet das Streifenband. <b>Entspannt auf die Streifen schauen</b>, ihnen folgen ist erlaubt. Antippen pausiert die Messung.', 'The stripe pattern starts now. <b>Look at the stripes in a relaxed way</b>; following them is allowed. Tap to pause the measurement.')}</p>
+      <div class="row"><button class="btn" data-act="repeat">${T('Neu kalibrieren', 'Recalibrate')}</button><button class="btn primary" data-act="measure">${T('Messung starten', 'Start measurement')}</button></div>`);
   } else {
     overlay(`
-      <h2><span class="pill bad">Kalibrierung nicht OK</span></h2>
-      <ul>${res.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
-      <div class="row"><button class="btn" data-act="check">Zurück zum Setup-Check</button><button class="btn primary" data-act="repeat">Wiederholen</button></div>`);
+      <h2><span class="pill bad">${T('Kalibrierung nicht OK', 'Calibration not OK')}</span></h2>
+      <ul>${(EN ? res.codes.map(issueEn) : res.issues).map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+      <div class="row"><button class="btn" data-act="check">${T('Zurück zum Setup-Check', 'Back to setup check')}</button><button class="btn primary" data-act="repeat">${T('Wiederholen', 'Repeat')}</button></div>`);
   }
   $('#overlay').onclick = (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
@@ -488,7 +509,7 @@ function startRun() {
     periodPx: Math.max(6, 2 * Math.tan(((s.periodDeg / 2) * Math.PI) / 180) * s.distanceCm * pxPerCm()),
   };
   M.off = tracker.on(onRunSample);
-  stage.c.onpointerdown = () => { if (!M.paused && state.run === M) pauseRun('Pausiert'); };
+  stage.c.onpointerdown = () => { if (!M.paused && state.run === M) pauseRun(T('Pausiert', 'Paused')); };
   $('#hud').hidden = false;
   requestAnimationFrame(runFrame);
 }
@@ -518,9 +539,10 @@ function runFrame() {
   const b = M.plan[M.i];
   const dir = DIRS[b.dir];
   const s = state.settings;
-  $('#hud').textContent = `Block ${M.i + 1}/${M.plan.length} · ${dir.arrow} ${b.speed} °/s${M.phase === 'pre' ? ' · gleich geht es los' : ''}`;
+  $('#hud').textContent = `Block ${M.i + 1}/${M.plan.length} · ${dir.arrow} ${b.speed} °/s${M.phase === 'pre' ? T(' · gleich geht es los', ' · starting soon') : ''}`;
   if (M.phase === 'pre') {
-    stage.fixation(dir.arrow, `${dir.label} · ${b.speed} °/s`, Math.max(1, Math.ceil(PRE_SEC - el)));
+    const n = Math.max(1, Math.ceil(PRE_SEC - el));
+    stage.fixation(dir.arrow, `${dirLabel(b.dir)} · ${b.speed} °/s`, T(`Start in ${n}`, `Starting in ${n}`));
     if (el >= PRE_SEC) { M.phase = 'stim'; M.phaseStart = now; }
   } else {
     const speedPx = ((b.speed * Math.PI) / 180) * s.distanceCm * pxPerCm(); // px/s, Kleinwinkel um die Bildschirmmitte
@@ -551,7 +573,7 @@ function endBlock() {
   M.status[M.i] = 'fertig';
   const r = analyzeRunBlock(M, M.i);
   if (r.quality === 'ungültig') {
-    pauseRun(`Block ${M.i + 1} war nicht auswertbar`, `Augen erkannt: ${pct(r.validPct)} · Wackeln: ${pct(r.shakePct)}. Empfehlung: Block wiederholen.`, true);
+    pauseRun(T(`Block ${M.i + 1} war nicht auswertbar`, `Block ${M.i + 1} could not be analysed`), T(`Augen erkannt: ${pct(r.validPct)} · Wackeln: ${pct(r.shakePct)}. Empfehlung: Block wiederholen.`, `Eyes detected: ${pct(r.validPct)} · shaking: ${pct(r.shakePct)}. Recommendation: repeat the block.`), true);
     return;
   }
   nextBlock();
@@ -586,13 +608,13 @@ function pauseRun(title, text = '', afterBlock = false) {
   const prev = afterBlock ? M.i : M.i - 1;
   overlay(`
     <h2>${esc(title)}</h2>
-    ${text ? `<p>${esc(text)}</p>` : `<p>Block ${M.i + 1} von ${M.plan.length}. Der unterbrochene Block wird beim Fortsetzen neu gestartet.</p>`}
+    ${text ? `<p>${esc(text)}</p>` : `<p>${T(`Block ${M.i + 1} von ${M.plan.length}. Der unterbrochene Block wird beim Fortsetzen neu gestartet.`, `Block ${M.i + 1} of ${M.plan.length}. The interrupted block restarts when you resume.`)}</p>`}
     <div class="row">
-      <button class="btn danger" data-act="end">Messung beenden</button>
-      ${afterBlock ? '' : '<button class="btn" data-act="skip">Block überspringen</button>'}
-      ${!afterBlock && prev >= 0 ? '<button class="btn" data-act="prev">Letzten Block wiederholen</button>' : ''}
-      ${afterBlock ? '<button class="btn" data-act="next">Trotzdem weiter</button><button class="btn primary" data-act="again">Wiederholen</button>'
-        : '<button class="btn primary" data-act="resume">Fortsetzen</button>'}
+      <button class="btn danger" data-act="end">${T('Messung beenden', 'End measurement')}</button>
+      ${afterBlock ? '' : `<button class="btn" data-act="skip">${T('Block überspringen', 'Skip block')}</button>`}
+      ${!afterBlock && prev >= 0 ? `<button class="btn" data-act="prev">${T('Letzten Block wiederholen', 'Repeat last block')}</button>` : ''}
+      ${afterBlock ? `<button class="btn" data-act="next">${T('Trotzdem weiter', 'Continue anyway')}</button><button class="btn primary" data-act="again">${T('Wiederholen', 'Repeat')}</button>`
+        : `<button class="btn primary" data-act="resume">${T('Fortsetzen', 'Resume')}</button>`}
     </div>`);
   $('#overlay').onclick = (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
@@ -616,7 +638,7 @@ async function finishRun() {
   stopTracking();
 
   const blocks = M.plan.map((b, i) => (M.status[i] === 'fertig' ? analyzeRunBlock(M, i) : null)).filter(Boolean);
-  if (!blocks.length) { toast('Messung beendet, kein Block abgeschlossen. Nichts gespeichert.'); show('home'); return; }
+  if (!blocks.length) { toast(T('Messung beendet, kein Block abgeschlossen. Nichts gespeichert.', 'Measurement ended, no block completed. Nothing saved.')); show('home'); return; }
 
   const cal = state.calib;
   const keep = M.samples.filter((x) => x.attempt === M.attempt[x.block] && M.status[x.block] === 'fertig');
@@ -647,23 +669,27 @@ async function finishRun() {
     await store.put('measurements', m);
   } catch (err) {
     console.error(err);
-    toast('Speichern im Browser fehlgeschlagen. Bitte sofort exportieren.');
+    toast(T('Speichern im Browser fehlgeschlagen. Bitte sofort exportieren.', 'Saving in the browser failed. Please export immediately.'));
   }
   state.measurements.push(m);
   showResult(m, true);
 }
 
 // ---------- Export ----------
-const CSV_COLS = ['Person', 'Datum', 'Haltung', 'Richtung', 'Geschwindigkeit °/s', 'eff. Geschwindigkeit °/s', 'Gain', 'Langsame Phase °/s', 'Schlagfrequenz Hz', 'Amplitude °', 'Schläge', 'Augen erkannt %', 'Wackeln %', 'Qualität'];
+const CSV_COLS = EN
+  ? ['Person', 'Date', 'Posture', 'Direction', 'Speed °/s', 'Eff. speed °/s', 'Gain', 'Slow phase °/s', 'Beat frequency Hz', 'Amplitude °', 'Beats', 'Eyes detected %', 'Shaking %', 'Quality']
+  : ['Person', 'Datum', 'Haltung', 'Richtung', 'Geschwindigkeit °/s', 'eff. Geschwindigkeit °/s', 'Gain', 'Langsame Phase °/s', 'Schlagfrequenz Hz', 'Amplitude °', 'Schläge', 'Augen erkannt %', 'Wackeln %', 'Qualität'];
+// Deutsch: Semikolon und Dezimalkomma (Excel DE); Englisch: Komma und Dezimalpunkt
+const CSV_SEP = EN ? ',' : ';';
 function csvFor(list) {
-  const n = (v, d = 3) => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '');
+  const n = (v, d = 3) => (Number.isFinite(v) ? (EN ? v.toFixed(d) : v.toFixed(d).replace('.', ',')) : '');
   const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
-  const rows = [CSV_COLS.map(q).join(';')];
+  const rows = [CSV_COLS.map(q).join(CSV_SEP)];
   for (const m of list) {
     for (const b of m.blocks) {
-      rows.push([q(m.personName), q(dateStr(m.createdAt)), q(m.settings.mode === 'hand' ? 'Hand' : 'Ständer'), q(DIRS[b.dir].label),
+      rows.push([q(m.personName), q(dateStr(m.createdAt)), q(m.settings.mode === 'hand' ? T('Hand', 'handheld') : T('Ständer', 'stand')), q(dirLabel(b.dir)),
         n(b.speed, 1), n(b.speedEff, 2), n(b.gain), n(b.spv, 2), n(b.beatHz, 2), n(b.ampDeg, 2), b.nBeats,
-        n(b.validPct * 100, 0), n(b.shakePct * 100, 0), q(b.quality)].join(';'));
+        n(b.validPct * 100, 0), n(b.shakePct * 100, 0), q(qualityLabel(b.quality))].join(CSV_SEP));
     }
   }
   return '﻿' + rows.join('\r\n');
@@ -674,12 +700,12 @@ function exportMeasurement(m) {
   store.offerFiles([
     { name: `${base}.json`, type: 'application/json', text: JSON.stringify(m) },
     { name: `${base}.csv`, type: 'text/csv', text: csvFor([m]) },
-  ]).then((r) => r !== 'aborted' && toast('Export bereitgestellt.'));
+  ]).then((r) => r !== 'aborted' && toast(T('Export bereitgestellt.', 'Export ready.')));
 }
 
 // ---------- Ergebnis ----------
 function qualityPill(q) {
-  return `<span class="pill ${q === 'gut' ? 'good' : q === 'mäßig' ? 'warn' : 'bad'}">${esc(q)}</span>`;
+  return `<span class="pill ${q === 'gut' ? 'good' : q === 'mäßig' ? 'warn' : 'bad'}">${esc(qualityLabel(q))}</span>`;
 }
 
 function showResult(m, fresh = false) {
@@ -694,47 +720,47 @@ function showResult(m, fresh = false) {
       <div class="result-head">
         <div>
           <h2>${esc(m.personName)}</h2>
-          <div class="meta">${dateStr(m.createdAt)} · ${m.settings.mode === 'hand' ? 'in der Hand' : 'Ständer'} · ${m.settings.distanceCm} cm · Streifen ${fmt(m.settings.periodDeg, 1)}°</div>
+          <div class="meta">${dateStr(m.createdAt)} · ${modeLabel(m.settings.mode)} · ${m.settings.distanceCm} cm · ${T('Streifen', 'stripes')} ${fmt(m.settings.periodDeg, 1)}°</div>
         </div>
         <div class="row">
-          <button class="btn danger" data-act="delete">Löschen</button>
-          <button class="btn primary" data-act="export">Exportieren</button>
+          <button class="btn danger" data-act="delete">${T('Löschen', 'Delete')}</button>
+          <button class="btn primary" data-act="export">${T('Exportieren', 'Export')}</button>
         </div>
       </div>
-      ${fresh ? '<p class="hint">Gespeichert auf diesem Gerät. Zum Sichern „Exportieren“ tippen und „In Dateien sichern“, AirDrop oder SeaFile wählen.</p>' : ''}
-      <div id="del-confirm" class="notice" hidden>Diese Messung wirklich löschen? Exportierte Dateien bleiben erhalten.
-        <div class="row" style="margin-top:8px"><button class="btn" data-act="del-no">Behalten</button><button class="btn danger" data-act="del-yes">Endgültig löschen</button></div>
+      ${fresh ? `<p class="hint">${T('Gespeichert auf diesem Gerät. Zum Sichern „Exportieren“ tippen und „In Dateien sichern“, AirDrop oder SeaFile wählen.', 'Saved on this device. To back it up, tap “Export” and choose “Save to Files”, AirDrop or SeaFile.')}</p>` : ''}
+      <div id="del-confirm" class="notice" hidden>${T('Diese Messung wirklich löschen? Exportierte Dateien bleiben erhalten.', 'Really delete this measurement? Exported files are kept.')}
+        <div class="row" style="margin-top:8px"><button class="btn" data-act="del-no">${T('Behalten', 'Keep')}</button><button class="btn danger" data-act="del-yes">${T('Endgültig löschen', 'Delete permanently')}</button></div>
       </div>
     </div>
     <div class="panel">
       <div class="tiles">
         <div class="tile"><div class="k">Gain horizontal</div><div class="v">${fmt(s.gainH)}</div><div class="s">← ${fmt(s.gainByDir.L)} · → ${fmt(s.gainByDir.R)}</div></div>
-        <div class="tile"><div class="k">Gain vertikal</div><div class="v">${fmt(s.gainV)}</div><div class="s">↑ ${fmt(s.gainByDir.U)} · ↓ ${fmt(s.gainByDir.D)}</div></div>
-        <div class="tile"><div class="k">Asymmetrie R/L</div><div class="v">${signed(s.asymH)} %</div><div class="s">+ = rechts stärker</div></div>
-        <div class="tile"><div class="k">Asymmetrie O/U</div><div class="v">${signed(s.asymV)} %</div><div class="s">+ = oben stärker</div></div>
-        <div class="tile"><div class="k">Schlagfrequenz</div><div class="v">${fmt(s.beatHz, 1)} Hz</div><div class="s">Mittel aller Blöcke</div></div>
-        <div class="tile"><div class="k">Amplitude</div><div class="v">${fmt(s.ampDeg, 1)}°</div><div class="s">${s.validBlocks} von ${s.totalBlocks} Blöcken gültig</div></div>
+        <div class="tile"><div class="k">${T('Gain vertikal', 'Gain vertical')}</div><div class="v">${fmt(s.gainV)}</div><div class="s">↑ ${fmt(s.gainByDir.U)} · ↓ ${fmt(s.gainByDir.D)}</div></div>
+        <div class="tile"><div class="k">${T('Asymmetrie R/L', 'Asymmetry R/L')}</div><div class="v">${signed(s.asymH)} %</div><div class="s">${T('+ = rechts stärker', '+ = right stronger')}</div></div>
+        <div class="tile"><div class="k">${T('Asymmetrie O/U', 'Asymmetry U/D')}</div><div class="v">${signed(s.asymV)} %</div><div class="s">${T('+ = oben stärker', '+ = up stronger')}</div></div>
+        <div class="tile"><div class="k">${T('Schlagfrequenz', 'Beat frequency')}</div><div class="v">${fmt(s.beatHz, 1)} Hz</div><div class="s">${T('Mittel aller Blöcke', 'mean of all blocks')}</div></div>
+        <div class="tile"><div class="k">Amplitude</div><div class="v">${fmt(s.ampDeg, 1)}°</div><div class="s">${T(`${s.validBlocks} von ${s.totalBlocks} Blöcken gültig`, `${s.validBlocks} of ${s.totalBlocks} blocks valid`)}</div></div>
       </div>
-      ${shaky ? '<p class="notice">In einigen Blöcken wurde Wackeln erkannt. Diese Abschnitte sind aus der Gain-Berechnung ausgeschlossen.</p>' : ''}
+      ${shaky ? `<p class="notice">${T('In einigen Blöcken wurde Wackeln erkannt. Diese Abschnitte sind aus der Gain-Berechnung ausgeschlossen.', 'Shaking was detected in some blocks. These sections are excluded from the gain calculation.')}</p>` : ''}
     </div>
     <div class="panel">
-      <h3>Blöcke</h3>
+      <h3>${T('Blöcke', 'Blocks')}</h3>
       <div class="table-wrap"><table>
-        <thead><tr><th>Richtung</th><th class="num">°/s</th><th class="num">eff. °/s</th><th class="num">Gain</th><th class="num">Schläge/s</th><th class="num">Amplitude</th><th class="num">Augen erkannt</th><th class="num">Wackeln</th><th>Qualität</th></tr></thead>
+        <thead><tr><th>${T('Richtung', 'Direction')}</th><th class="num">°/s</th><th class="num">eff. °/s</th><th class="num">Gain</th><th class="num">${T('Schläge/s', 'Beats/s')}</th><th class="num">Amplitude</th><th class="num">${T('Augen erkannt', 'Eyes detected')}</th><th class="num">${T('Wackeln', 'Shaking')}</th><th>${T('Qualität', 'Quality')}</th></tr></thead>
         <tbody>${blocks.map((b) => `<tr>
-          <td>${DIRS[b.dir].arrow} ${DIRS[b.dir].label}</td><td class="num">${b.speed}</td><td class="num">${fmt(b.speedEff, 1)}</td>
+          <td>${DIRS[b.dir].arrow} ${dirLabel(b.dir)}</td><td class="num">${b.speed}</td><td class="num">${fmt(b.speedEff, 1)}</td>
           <td class="num">${fmt(b.gain)}</td><td class="num">${fmt(b.beatHz, 1)}</td><td class="num">${fmt(b.ampDeg, 1)}°</td>
           <td class="num">${pct(b.validPct)}</td><td class="num">${pct(b.shakePct)}</td><td>${qualityPill(b.quality)}</td></tr>`).join('')}</tbody>
       </table></div>
     </div>
     <div class="panel">
       <div class="panel-head">
-        <h3>Augenbewegung im Block</h3>
+        <h3>${T('Augenbewegung im Block', 'Eye movement in the block')}</h3>
         <label class="sr" for="trace-block">Block</label>
-        <select id="trace-block">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${DIRS[b.dir].label} · ${b.speed} °/s</option>`).join('')}</select>
+        <select id="trace-block">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${dirLabel(b.dir)} · ${b.speed} °/s</option>`).join('')}</select>
       </div>
-      <p class="hint">Sägezahn: langsame Phase in Laufrichtung, schneller Rücksprung dagegen. Lücken = Augen nicht erkannt (z. B. Lidschlag).</p>
-      <div class="chart-box"><canvas id="trace-canvas" aria-label="Augenposition über die Zeit"></canvas></div>
+      <p class="hint">${T('Sägezahn: langsame Phase in Laufrichtung, schneller Rücksprung dagegen. Lücken = Augen nicht erkannt (z. B. Lidschlag).', 'Sawtooth: slow phase in the direction of motion, fast reset jump against it. Gaps = eyes not detected (e.g. blink).')}</p>
+      <div class="chart-box"><canvas id="trace-canvas" aria-label="${T('Augenposition über die Zeit', 'Eye position over time')}"></canvas></div>
     </div>`;
 
   const drawTrace = () => {
@@ -747,7 +773,7 @@ function showResult(m, fresh = false) {
     const axis = DIRS[b.dir].axis === 'x' ? F.ex : F.ey;
     const t0 = rows[0]?.[F.t] ?? 0;
     const pts = rows.map((r) => ({ x: r[F.t] - t0, y: r[axis] }));
-    traceChart($('#trace-canvas'), pts, DIRS[b.dir].axis === 'x' ? 'Auge horizontal (°, + = rechts)' : 'Auge vertikal (°, + = unten)');
+    traceChart($('#trace-canvas'), pts, DIRS[b.dir].axis === 'x' ? T('Auge horizontal (°, + = rechts)', 'Eye horizontal (°, + = right)') : T('Auge vertikal (°, + = unten)', 'Eye vertical (°, + = down)'));
   };
   $('#trace-block').addEventListener('change', drawTrace);
   if (blocks.length) drawTrace();
@@ -761,7 +787,7 @@ function showResult(m, fresh = false) {
       await store.remove('measurements', m.id);
       state.measurements = state.measurements.filter((x) => x.id !== m.id);
       state.selected.delete(m.id);
-      toast('Messung gelöscht.');
+      toast(T('Messung gelöscht.', 'Measurement deleted.'));
       show('home');
     }
   };
@@ -775,7 +801,7 @@ function showCompare() {
   const list = state.measurements.filter((m) => state.selected.has(m.id)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (list.length < 2) return;
   const ref = list[0];
-  const label = (m) => `${m.personName} · ${new Date(m.createdAt).toLocaleDateString('de-DE')}`;
+  const label = (m) => `${m.personName} · ${new Date(m.createdAt).toLocaleDateString(LOCALE)}`;
   const speeds = [...new Set(list.flatMap((m) => m.blocks.map((b) => b.speed)))].sort((a, b) => a - b);
   const gainOf = (m, d, v) => {
     const b = m.blocks.find((x) => x.dir === d && x.speed === v && x.quality !== 'ungültig');
@@ -790,45 +816,45 @@ function showCompare() {
   };
 
   const summaryRows = [
-    ['Gain gesamt', (m) => m.summary.gainAll, 2, ''],
+    [T('Gain gesamt', 'Gain overall'), (m) => m.summary.gainAll, 2, ''],
     ['Gain horizontal', (m) => m.summary.gainH, 2, ''],
-    ['Gain vertikal', (m) => m.summary.gainV, 2, ''],
-    ['Asymmetrie R/L', (m) => m.summary.asymH, 0, ' %'],
-    ['Asymmetrie O/U', (m) => m.summary.asymV, 0, ' %'],
-    ['Schlagfrequenz', (m) => m.summary.beatHz, 1, ' Hz'],
+    [T('Gain vertikal', 'Gain vertical'), (m) => m.summary.gainV, 2, ''],
+    [T('Asymmetrie R/L', 'Asymmetry R/L'), (m) => m.summary.asymH, 0, ' %'],
+    [T('Asymmetrie O/U', 'Asymmetry U/D'), (m) => m.summary.asymV, 0, ' %'],
+    [T('Schlagfrequenz', 'Beat frequency'), (m) => m.summary.beatHz, 1, ' Hz'],
     ['Amplitude', (m) => m.summary.ampDeg, 1, '°'],
   ];
 
   const el = $('#v-compare');
   el.innerHTML = `
     <div class="panel">
-      <h2>Vergleich von ${list.length} Messungen</h2>
-      <p class="hint">Bezug ist die älteste Messung (${esc(label(ref))}). Kleine graue Zahlen: Abweichung zum Bezug.</p>
-      <div class="legend" style="margin-top:12px">${list.map((m, i) => `<span><i style="background:${seriesColor(i)}"></i>${esc(label(m))}${m.settings.mode === 'hand' ? ' (Hand)' : ''}</span>`).join('')}</div>
+      <h2>${T(`Vergleich von ${list.length} Messungen`, `Comparison of ${list.length} measurements`)}</h2>
+      <p class="hint">${T(`Bezug ist die älteste Messung (${esc(label(ref))}). Kleine graue Zahlen: Abweichung zum Bezug.`, `The reference is the oldest measurement (${esc(label(ref))}). Small grey numbers: difference from the reference.`)}</p>
+      <div class="legend" style="margin-top:12px">${list.map((m, i) => `<span><i style="background:${seriesColor(i)}"></i>${esc(label(m))}${m.settings.mode === 'hand' ? T(' (Hand)', ' (handheld)') : ''}</span>`).join('')}</div>
     </div>
     <div class="panel">
-      <h3>Zahlen</h3>
+      <h3>${T('Zahlen', 'Numbers')}</h3>
       <div class="table-wrap"><table>
         <thead><tr><th></th>${list.map((m) => `<th class="num">${esc(label(m))}</th>`).join('')}</tr></thead>
         <tbody>
-          <tr class="group"><td colspan="${list.length + 1}">Zusammenfassung</td></tr>
+          <tr class="group"><td colspan="${list.length + 1}">${T('Zusammenfassung', 'Summary')}</td></tr>
           ${summaryRows.map(([name, get, d, unit]) => `<tr><td>${name}</td>${list.map((m, i) => cell(get(m), get(ref), d, i === 0, unit)).join('')}</tr>`).join('')}
-          <tr class="group"><td colspan="${list.length + 1}">Gain je Richtung und Geschwindigkeit</td></tr>
-          ${DIR_ORDER.flatMap((d) => speeds.map((v) => `<tr><td>${DIRS[d].arrow} ${DIRS[d].label} · ${v} °/s</td>${list.map((m, i) => cell(gainOf(m, d, v), gainOf(ref, d, v), 2, i === 0)).join('')}</tr>`)).join('')}
+          <tr class="group"><td colspan="${list.length + 1}">${T('Gain je Richtung und Geschwindigkeit', 'Gain per direction and speed')}</td></tr>
+          ${DIR_ORDER.flatMap((d) => speeds.map((v) => `<tr><td>${DIRS[d].arrow} ${dirLabel(d)} · ${v} °/s</td>${list.map((m, i) => cell(gainOf(m, d, v), gainOf(ref, d, v), 2, i === 0)).join('')}</tr>`)).join('')}
         </tbody>
       </table></div>
     </div>
     <div class="panel">
-      <h3>Gain je Richtung</h3>
-      <div class="chart-grid">${DIR_ORDER.map((d) => `<div class="chart-box"><canvas id="cmp-${d}" aria-label="Gain ${DIRS[d].label}"></canvas></div>`).join('')}</div>
+      <h3>${T('Gain je Richtung', 'Gain per direction')}</h3>
+      <div class="chart-grid">${DIR_ORDER.map((d) => `<div class="chart-box"><canvas id="cmp-${d}" aria-label="Gain ${dirLabel(d)}"></canvas></div>`).join('')}</div>
     </div>
     <div class="panel">
-      <h3>Asymmetrie</h3>
-      <p class="hint">Positiv: rechts bzw. oben stärker. Werte nahe 0 sind symmetrisch.</p>
-      <div class="chart-box"><canvas id="cmp-asym" aria-label="Asymmetrie"></canvas></div>
+      <h3>${T('Asymmetrie', 'Asymmetry')}</h3>
+      <p class="hint">${T('Positiv: rechts bzw. oben stärker. Werte nahe 0 sind symmetrisch.', 'Positive: right or up stronger. Values near 0 are symmetrical.')}</p>
+      <div class="chart-box"><canvas id="cmp-asym" aria-label="${T('Asymmetrie', 'Asymmetry')}"></canvas></div>
     </div>
     <div class="panel row">
-      <button class="btn primary" data-act="export">Vergleich exportieren</button>
+      <button class="btn primary" data-act="export">${T('Vergleich exportieren', 'Export comparison')}</button>
     </div>`;
 
   for (const d of DIR_ORDER) {
@@ -836,18 +862,18 @@ function showCompare() {
       label: label(m),
       color: seriesColor(i),
       points: speeds.map((v) => ({ x: v, y: gainOf(m, d, v) })).filter((p) => Number.isFinite(p.y)),
-    })), `${DIRS[d].arrow} ${DIRS[d].label}`);
+    })), `${DIRS[d].arrow} ${dirLabel(d)}`);
   }
   asymChart($('#cmp-asym'), list.map((m, i) => ({ label: label(m), color: seriesColor(i), asymH: m.summary.asymH, asymV: m.summary.asymV })));
 
   el.onclick = (e) => {
     if (e.target.closest('[data-act]')?.dataset.act !== 'export') return;
     const now = new Date().toISOString();
-    store.offerFiles([{ name: `OKR_Vergleich_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(list) }])
-      .then((r) => r !== 'aborted' && toast('Export bereitgestellt.'));
+    store.offerFiles([{ name: `OKR_${T('Vergleich', 'Comparison')}_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(list) }])
+      .then((r) => r !== 'aborted' && toast(T('Export bereitgestellt.', 'Export ready.')));
   };
   show('compare');
-  $('#topmeta').textContent = 'Vergleich';
+  $('#topmeta').textContent = T('Vergleich', 'Comparison');
 }
 
 // ---------- Start ----------
@@ -856,11 +882,11 @@ async function init() {
     [state.persons, state.measurements] = await Promise.all([store.getAll('persons'), store.getAll('measurements')]);
   } catch (err) {
     console.error(err);
-    toast('Gerätespeicher nicht verfügbar (privates Fenster?). Messungen sofort exportieren.');
+    toast(T('Gerätespeicher nicht verfügbar (privates Fenster?). Messungen sofort exportieren.', 'Device storage not available (private window?). Export measurements immediately.'));
   }
   show('home');
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-    toast('Kamera nur über HTTPS verfügbar.');
+    toast(T('Kamera nur über HTTPS verfügbar.', 'Camera only available over HTTPS.'));
   }
 }
 init();

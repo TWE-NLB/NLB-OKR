@@ -70,7 +70,7 @@ export class Stage {
     }
     if (countdown != null) {
       ctx.font = `500 ${Math.round(Math.min(w, h) * 0.035)}px system-ui, sans-serif`;
-      ctx.fillText(`Start in ${countdown}`, w / 2, h / 2 + Math.min(w, h) * 0.24);
+      ctx.fillText(countdown, w / 2, h / 2 + Math.min(w, h) * 0.24);
     }
   }
 }
