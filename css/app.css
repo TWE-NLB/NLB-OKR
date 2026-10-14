@@ -68,6 +68,11 @@ h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: var(--ink-2); te
 
 main { padding: 16px; max-width: 1180px; margin: 0 auto; }
 .view { display: flex; flex-direction: column; gap: 16px; }
+.home-head { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.home-head h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+.home-head .hint { margin: 2px 0 0; }
+/* Logo hat weißen Hintergrund: auf einer weißen Fläche, damit es auch im dunklen Design sauber aussieht */
+.logo { display: block; height: 58px; width: auto; max-width: 100%; background: #fff; border-radius: 8px; padding: 6px 10px; box-sizing: content-box; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
 .panel.narrow { max-width: 640px; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
