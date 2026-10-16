@@ -93,14 +93,15 @@ export function fitCalibration(points, opts = {}) {
   if (!(fx.r2 >= 0.8) || !(sepX >= 4)) {
     issue('horizontal', 'Links/rechts-Bewegung der Augen wurde nicht sauber erkannt. Bitte den Punkten nur mit den Augen folgen, den Kopf nicht drehen.');
   }
-  if (!(fy.r2 >= 0.7) || !(sepY >= 3)) {
+  const vertical = opts.vertical !== false;
+  if (vertical && (!(fy.r2 >= 0.7) || !(sepY >= 3))) {
     issue('vertical', 'Oben/unten-Bewegung der Augen wurde nicht sauber erkannt. Augen weit genug öffnen, Licht von vorne, Kopf gerade halten.');
   }
 
   const centers = usable.filter((p) => p.tx === 0 && p.ty === 0);
   const cxDeg = centers.map((p) => fx.a + fx.b * p.fx);
-  const cyDeg = centers.map((p) => fy.a + fy.b * p.fy);
-  const centerSdX = sd(cxDeg), centerSdY = sd(cyDeg);
+  const cyDeg = vertical ? centers.map((p) => fy.a + fy.b * p.fy) : [];
+  const centerSdX = sd(cxDeg), centerSdY = vertical ? sd(cyDeg) : NaN;
   if (centerSdX > 1.5 || centerSdY > 2.5) {
     issue('center', 'Der Mittelpunkt wurde nicht gleichmäßig angeschaut. Bitte bei jedem Punkt ruhig fixieren.');
   }
@@ -233,6 +234,53 @@ export function summarize(blocks) {
     asymV: asymmetry(byDir.U, byDir.D),
     beatHz: mean(ok.map((b) => b.beatHz)),
     ampDeg: mean(ok.map((b) => b.ampDeg)),
+    validBlocks: ok.length,
+    totalBlocks: blocks.length,
+  };
+}
+
+// ---------------- Schnellcheck: Asymmetrie aus Wiederholungspaaren
+// Kritische t-Werte (zweiseitig, 95 %) für df = 1 … 12
+const T95 = [NaN, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228, 2.201, 2.179];
+// Unterhalb dieser Asymmetrie (in %) wertet die App einen Unterschied nicht als auffällig.
+// Festlegung der App, kein Literaturwert.
+export const ASYM_MIN = 10;
+
+const usable = (b) => b && b.quality !== 'ungültig' && Number.isFinite(b.gain);
+
+// Ein Asymmetriewert je Paar (gleiche Geschwindigkeit, gleiche Wiederholung).
+// (a − b) ÷ Mittelwert × 100: R/L → positiv = rechts stärker; U/D → positiv = oben stärker.
+export function pairAsymmetries(blocks, a, b) {
+  const vals = [];
+  for (const x of blocks.filter((k) => k.dir === a && usable(k))) {
+    const y = blocks.find((k) => k.dir === b && k.speed === x.speed && k.rep === x.rep && usable(k));
+    if (y) vals.push(asymmetry(x.gain, y.gain));
+  }
+  return vals.filter(Number.isFinite);
+}
+
+export function asymStats(vals) {
+  const n = vals.length;
+  const m = mean(vals);
+  const s = sd(vals);
+  const ci = n >= 2 ? (T95[Math.min(n - 1, T95.length - 1)] * s) / Math.sqrt(n) : NaN;
+  let verdict = 'unklar';
+  if (n >= 2 && Number.isFinite(m)) {
+    if (Math.abs(m) < ASYM_MIN) verdict = 'gering';
+    else if (Math.abs(m) - ci > 0) verdict = 'deutlich';
+  }
+  return { n, mean: m, sd: s, ci, verdict, values: vals };
+}
+
+export function summarizeQuick(blocks) {
+  const ok = blocks.filter(usable);
+  const byDir = {};
+  for (const d of DIR_ORDER) byDir[d] = mean(ok.filter((b) => b.dir === d).map((b) => b.gain));
+  return {
+    h: asymStats(pairAsymmetries(blocks, 'R', 'L')),
+    v: blocks.some((b) => b.dir === 'U' || b.dir === 'D') ? asymStats(pairAsymmetries(blocks, 'U', 'D')) : null,
+    gain: mean(ok.map((b) => b.gain)),
+    gainByDir: byDir,
     validBlocks: ok.length,
     totalBlocks: blocks.length,
   };

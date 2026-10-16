@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>NLB OKR Measurement</title>
+  <title>NLB OKR Quick Check</title>
   <meta name="description" content="Optokinetic reflex: moving stripe pattern with eye tracking via the front camera">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -22,146 +22,12 @@
 <body>
   <header class="topbar">
     <button id="back" class="btn ghost" hidden>‹ Overview</button>
-    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>OKR Measurement</div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>OKR quick check</div>
     <div class="topbar-meta" id="topmeta"></div>
     <a class="lang-switch" href="../" hreflang="de" lang="de">Deutsch</a>
   </header>
 
-  <main id="main">
-    <!-- Overview -->
-    <section id="v-home" class="view">
-      <div class="home-head">
-        <img class="logo" src="../img/nlb-logo.jpg" width="150" height="58" alt="NeuroLifeBalance">
-        <div>
-          <h1>OKR Measurement</h1>
-          <p class="hint">Optokinetic reflex: moving stripe pattern with eye tracking via the front camera</p>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <h2>People</h2>
-          <form id="person-form" class="row">
-            <label for="person-name" class="sr">Pseudonym or code</label>
-            <input id="person-name" placeholder="Pseudonym or code, e.g. P01" autocomplete="off" maxlength="40" required>
-            <button class="btn" type="submit">Add</button>
-          </form>
-          <ul id="person-list" class="list"></ul>
-          <p class="hint">Please use pseudonyms only. All data stay on this device.</p>
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
-            <h2>Measurements</h2>
-            <div class="row tight">
-              <label class="btn ghost" for="import-file">Import</label>
-              <input id="import-file" type="file" accept=".json,application/json" multiple hidden>
-              <button id="export-all" class="btn ghost" type="button">Export all</button>
-            </div>
-          </div>
-          <ul id="measure-list" class="list"></ul>
-          <div class="row sticky-actions">
-            <button id="compare-btn" class="btn" type="button" disabled>Compare</button>
-            <span class="hint" id="compare-hint">Tick at least two measurements.</span>
-          </div>
-        </div>
-      </div>
-
-      <details class="panel help">
-        <summary>How the measurement works</summary>
-        <ol>
-          <li><b>Choose a person</b> and check the settings.</li>
-          <li><b>Setup check:</b> light, face, distance and steadiness must be green.</li>
-          <li><b>Calibration:</b> a dot jumps to the centre, left, right, top and bottom. Follow it with your eyes only. The measurement only starts once the calibration is OK.</li>
-          <li><b>Measurement:</b> the stripe pattern runs in each direction at each speed. Look at the stripes in a relaxed way. Tap to pause.</li>
-          <li><b>Result:</b> gain (eye velocity ÷ stripe speed), beat frequency, amplitude, asymmetry. Then export: <i>Share → Save to Files</i>, AirDrop or SeaFile.</li>
-        </ol>
-        <p class="hint">Tip: via <i>Share → Add to Home Screen</i> the app runs full screen. Safari may delete website data after a long period of non-use, so export measurements regularly. The German and English versions share the same measurements on this device.</p>
-      </details>
-    </section>
-
-    <!-- Settings before the measurement -->
-    <section id="v-setup" class="view" hidden>
-      <div class="panel narrow">
-        <h2>New measurement · <span id="setup-person"></span></h2>
-        <form id="setup-form" class="form">
-          <fieldset>
-            <legend>Posture</legend>
-            <div class="seg">
-              <input type="radio" name="mode" id="mode-stand" value="stand"><label for="mode-stand">Stand</label>
-              <input type="radio" name="mode" id="mode-hand" value="hand"><label for="mode-hand">Handheld</label>
-            </div>
-          </fieldset>
-          <div class="field">
-            <label for="distance">Distance eye–screen</label>
-            <div class="unit"><input id="distance" type="number" inputmode="decimal" min="20" max="80" step="1"><span>cm</span></div>
-          </div>
-          <div class="field">
-            <label for="device">Device</label>
-            <select id="device"></select>
-          </div>
-          <div class="field" id="ppi-field">
-            <label for="ppi">Points per inch</label>
-            <div class="unit"><input id="ppi" type="number" min="80" max="300" step="1"><span>pt/in</span></div>
-          </div>
-          <fieldset>
-            <legend>Directions</legend>
-            <div class="chips">
-              <input type="checkbox" id="dir-L"><label for="dir-L">← left</label>
-              <input type="checkbox" id="dir-R"><label for="dir-R">→ right</label>
-              <input type="checkbox" id="dir-U"><label for="dir-U">↑ up</label>
-              <input type="checkbox" id="dir-D"><label for="dir-D">↓ down</label>
-            </div>
-          </fieldset>
-          <div class="field">
-            <label for="speeds">Speeds</label>
-            <div class="unit"><input id="speeds" inputmode="decimal" placeholder="10, 20, 30"><span>°/s</span></div>
-          </div>
-          <div class="field">
-            <label for="block-sec">Duration per block</label>
-            <div class="unit"><input id="block-sec" type="number" min="5" max="30" step="1"><span>s</span></div>
-          </div>
-          <div class="field">
-            <label for="period">Stripe width (black + white pair)</label>
-            <div class="unit"><input id="period" type="number" min="1" max="20" step="0.5"><span>°</span></div>
-          </div>
-          <div class="field">
-            <label for="order">Order</label>
-            <select id="order">
-              <option value="speed">all directions per speed</option>
-              <option value="dir">all speeds per direction</option>
-            </select>
-          </div>
-          <p class="plan" id="plan-summary"></p>
-          <div class="row">
-            <button class="btn primary" type="submit">Continue to setup check</button>
-          </div>
-          <p class="error" id="setup-error" hidden></p>
-        </form>
-      </div>
-    </section>
-
-    <!-- Setup check with camera image -->
-    <section id="v-check" class="view" hidden>
-      <div class="check-layout">
-        <div class="cam-box" id="cam-box"><div class="cam-status" id="cam-status">Starting camera …</div></div>
-        <div class="panel">
-          <h2>Setup check</h2>
-          <ul class="checks" id="checks"></ul>
-          <label class="confirm"><input type="checkbox" id="dist-confirm"> Distance measured: <b id="dist-target"></b></label>
-          <div class="row">
-            <button id="start-calib" class="btn primary" type="button" disabled>Start calibration</button>
-          </div>
-          <p class="hint" id="check-hint">iPad in landscape, camera at eye level, light from the front. Measure the distance with a ruler or tape measure.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Result of a measurement -->
-    <section id="v-result" class="view" hidden></section>
-
-    <!-- Comparison -->
-    <section id="v-compare" class="view" hidden></section>
-  </main>
+  <main id="main"></main>
 
   <!-- Full-screen layer for calibration and measurement -->
   <div id="fs" hidden>

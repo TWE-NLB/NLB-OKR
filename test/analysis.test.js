@@ -1,5 +1,5 @@
 // Ausführen: /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js
-import { analyzeBlock, fitCalibration, summarize } from '../js/analysis.js';
+import { analyzeBlock, fitCalibration, summarize, summarizeQuick, asymStats } from '../js/analysis.js';
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
@@ -52,5 +52,23 @@ const sum = summarize([
 ]);
 check('Asymmetrie R/L ≈ 22 %', Math.abs(sum.asymH - 22.2) < 0.5, sum.asymH.toFixed(1));
 check('Ungültige Blöcke ignoriert', sum.validBlocks === 2);
+
+// Kalibrierung nur waagerecht (5 Punkte)
+const calH = fitCalibration([point(0, 0), point(-12, 0), point(0, 0), point(12, 0), point(0, 0)], { mode: 'stand', vertical: false });
+check('Kalibrierung nur waagerecht OK', calH.ok, calH.issues.join(' | '));
+
+// Schnellcheck: rechts deutlich schwächer (Gain R 0,6 vs. L 0,8), 3 Wiederholungen × 2 Geschwindigkeiten
+const qb = [];
+for (const speed of [8, 12]) for (const rep of [1, 2, 3]) {
+  qb.push({ dir: 'L', speed, rep, gain: 0.8 + (rep - 2) * 0.01, quality: 'gut' });
+  qb.push({ dir: 'R', speed, rep, gain: 0.6 + (rep - 2) * 0.015, quality: 'gut' });
+}
+const qs = summarizeQuick(qb);
+check('Asymmetrie R/L ≈ −29 %', Math.abs(qs.h.mean + 28.6) < 2, qs.h.mean.toFixed(1));
+check('Bewertung deutlich', qs.h.verdict === 'deutlich', qs.h.verdict + ' ±' + qs.h.ci.toFixed(1));
+check('Kein senkrechter Wert ohne senkrechte Blöcke', qs.v === null);
+check('Kleine Asymmetrie → gering', asymStats([3, -2, 4, 1, 0, 2]).verdict === 'gering');
+check('Große Streuung → unklar', asymStats([30, -10, 40, -5, 25, -20]).verdict === 'unklar');
+check('Ungültiger Block fällt aus dem Paar', summarizeQuick([{ dir: 'L', speed: 8, rep: 1, gain: 0.8, quality: 'gut' }, { dir: 'R', speed: 8, rep: 1, gain: 0.5, quality: 'ungültig' }]).h.n === 0);
 
 print(fails ? `${fails} Test(s) fehlgeschlagen` : 'Alle Tests bestanden');

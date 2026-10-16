@@ -6,23 +6,14 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 
 **Englische Version:** https://twe-nlb.github.io/NLB-OKR/EN/. Beide Versionen nutzen denselben Programmcode (`js/i18n.js` wählt die Sprache über `<html lang>`) und teilen sich auf einem Gerät dieselben Messungen.
 
-## Ablauf
+## Ablauf (Schnellcheck)
 
-1. **Person anlegen.** Bitte nur Pseudonyme verwenden.
-2. **Einstellungen prüfen:**
-   - Haltung (Ständer oder in der Hand) und Abstand.
-   - Gerät, also die Bildschirmdichte.
-   - Richtungen ← → ↑ ↓ und Geschwindigkeiten (Standard 10/20/30 °/s, 10 s je Block).
-3. **Setup-Check:** Kamera, Gesicht, Augen, Licht, Position und Ruhe müssen grün sein. Zusätzlich muss der gemessene Abstand bestätigt werden.
-4. **Kalibrierung:**
-   - Ein Punkt erscheint nacheinander Mitte → links → rechts → oben → unten.
-   - Die Messung startet nur, wenn die Kalibrierung die Qualitätsprüfung besteht.
-5. **Messung:**
-   - Vor jedem Block erscheinen 3 s Fixierkreuz mit Richtungspfeil.
-   - Antippen pausiert die Messung. Danach lässt sich fortsetzen, der letzte Block wiederholen, ein Block überspringen oder die Messung beenden.
-   - Ist ein Block nicht auswertbar, schlägt die App vor, ihn zu wiederholen.
-6. **Ergebnis:** Gain je Richtung und Geschwindigkeit, Schlagfrequenz, Amplitude, Asymmetrie und die Augenbewegung als Kurve.
-7. **Vergleich:** Zwei oder mehr Messungen anhaken. Die App zeigt eine Tabelle mit den Abweichungen zur ältesten Messung, Gain-Diagramme je Richtung und ein Asymmetrie-Diagramm.
+1. **Gerät einmalig einrichten:** Abstand Auge–Bildschirm und Gerätetyp. Gemessen wird immer quer im Ständer.
+2. **Person anlegen** (nur Pseudonyme). Pro Person werden die Messbedingungen gespeichert: Muster (Streifen oder Stern, Mond, Sonne, Fisch, Hund, Hase, Elefant), Farbe (Schwarz, Rot, Blau auf Weiß), Breite (Standard 8°), zwei Geschwindigkeiten (Standard 8 und 12 °/s), optional senkrecht.
+3. **Anweisung vorlesen** (steht wörtlich in der App) und „Messung starten“.
+4. **Setup-Check:** Sobald Kamera, Gesicht, Augen, Licht, Position und Ruhe passen, startet die Kalibrierung automatisch (Hase als Blickziel).
+5. **Messung:** ← → im Wechsel, je 3 Runden pro Geschwindigkeit (optional ↑ ↓ ebenso), 8 s je Runde. Ungültige Runden werden am Ende einmal automatisch wiederholt. Antippen pausiert.
+6. **Ergebnis:** Asymmetrie rechts/links mit Messschwankung (95-%-Vertrauensbereich aus den Wiederholungen) und Bewertung, Asymmetrie oben/unten, Gain. Verglichen wird nur mit früheren Messungen derselben Person unter gleichen Bedingungen; die erste ist die Ausgangsmessung.
 
 ## Daten
 
@@ -36,10 +27,11 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 ## Messprinzip
 
 - **Augenposition:** Iris-Mittelpunkt relativ zur Linie zwischen den Augenwinkeln (MediaPipe Face Landmarker), normiert auf die Augenbreite. Die Kalibrierung rechnet diesen Wert in Grad um.
+- **Asymmetrie:** je Runde (rechts − links) ÷ Mittelwert × 100 %, gemittelt über alle Wiederholungen; „deutlich“ ab 10 % und wenn der Vertrauensbereich die Null nicht einschließt (Festlegung der App).
 - **Gain:** Median der Augengeschwindigkeit in der langsamen Phase geteilt durch die Streifengeschwindigkeit.
   - Schnelle Phasen (Rücksprünge) werden über eine Geschwindigkeitsschwelle erkannt.
   - Die Streifengeschwindigkeit in °/s wird über die Gesichtsgröße an den aktuellen Abstand angepasst.
-- **Wackeln:** Gyroskop (Gerätedrehung über 20 °/s) oder schnelle Gesichtsbewegung im Kamerabild. Betroffene Abschnitte fließen nicht in den Gain ein.
+- **Wackeln:** schnelle Gesichtsbewegung im Kamerabild. Betroffene Abschnitte fließen nicht in den Gain ein.
 - **Grenzen:**
   - Etwa 30 Bilder/s: Die schnellen Phasen werden nur grob erfasst, die langsame Phase und damit der Gain gut.
   - Das ist kein Medizinprodukt.
