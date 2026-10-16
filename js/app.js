@@ -1,10 +1,10 @@
 // OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js';
-import { Tracker } from './tracker.js';
-import { Stage, PATTERNS, COLORS } from './stage.js';
-import * as store from './store.js';
-import { traceChart, timelineChart, destroyAll } from './charts.js';
-import { T, EN, LOCALE } from './i18n.js';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.0.1';
+import { Tracker } from './tracker.js?v=2.0.1';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.0.1';
+import * as store from './store.js?v=2.0.1';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.0.1';
+import { T, EN, LOCALE } from './i18n.js?v=2.0.1';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
