@@ -9,7 +9,7 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 ## Ablauf (Schnellcheck)
 
 1. **Gerät einmalig einrichten:** Abstand Auge–Bildschirm und Gerätetyp. Gemessen wird immer quer im Ständer.
-2. **Person anlegen** (nur Pseudonyme). Pro Person werden die Messbedingungen gespeichert: Muster (Streifen oder Stern, Mond, Sonne, Fisch, Hund, Hase, Elefant), Farbe (Schwarz, Rot, Blau auf Weiß), Breite (Standard 8°), zwei Geschwindigkeiten (Standard 8 und 12 °/s), optional senkrecht.
+2. **Person anlegen** (nur Pseudonyme). Pro Person werden die Messbedingungen gespeichert: Muster (Streifen oder Symbole: Stern, Mond, Sonne, Fisch, Hund, Hase, Elefant zufällig gemischt), Farbe (Schwarz, Rot, Blau auf Weiß), Breite (Standard 8°), zwei Geschwindigkeiten (Standard 8 und 12 °/s), optional senkrecht.
 3. **Anweisung vorlesen** (steht wörtlich in der App) und „Messung starten“.
 4. **Setup-Check:** Sobald Kamera, Gesicht, Augen, Licht, Position und Ruhe passen, startet die Kalibrierung automatisch (Hase als Blickziel).
 5. **Messung:** ← → im Wechsel, je 3 Runden pro Geschwindigkeit (optional ↑ ↓ ebenso), 8 s je Runde. Ungültige Runden werden am Ende einmal automatisch wiederholt. Antippen pausiert.

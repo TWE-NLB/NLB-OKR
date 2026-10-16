@@ -2,7 +2,16 @@
 // Hintergrund immer weiß, Muster in Schwarz, Rot oder Blau.
 
 export const COLORS = { black: '#000000', red: '#d0021b', blue: '#0047ab' };
-export const PATTERNS = ['stripes', 'star', 'moon', 'sun', 'fish', 'dog', 'rabbit', 'elephant'];
+export const PATTERNS = ['stripes', 'symbols'];
+// Figuren für „Symbole“: zufällig gemischt, aber je Rasterplatz fest (kein Flackern)
+export const SHAPES = ['star', 'moon', 'sun', 'fish', 'dog', 'rabbit', 'elephant'];
+
+function shapeAt(col, row) {
+  let h = (col * 73856093) ^ (row * 19349663);
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  h ^= h >>> 15;
+  return SHAPES[Math.abs(h) % SHAPES.length];
+}
 const BG = '#ffffff';
 
 // Figuren als Silhouetten im Einheitsquadrat [-0.5, 0.5], Blickrichtung nach rechts.
@@ -116,7 +125,7 @@ export class Stage {
   }
 
   // Bewegtes Muster. axis 'x': waagerechte Bewegung, 'y': senkrechte Bewegung.
-  // Streifen: Paarbreite periodPx (halb farbig, halb weiß). Figuren: Größe ≈ Streifenbreite, Raster im Abstand periodPx.
+  // Streifen: Paarbreite periodPx (halb farbig, halb weiß). Symbole: Größe ≈ Streifenbreite, Raster im Abstand periodPx, Figur je Rasterplatz zufällig.
   pattern(kind, color, axis, offsetPx, periodPx, sign = 1) {
     const { ctx, w, h } = this;
     this.fill();
@@ -137,7 +146,8 @@ export class Stage {
       const shift = (j % 2) * (P / 2);
       for (let a = start + shift - P; a < along + P; a += P) {
         const x = axis === 'x' ? a : b, y = axis === 'x' ? b : a;
-        this.drawShape(kind, color, x, y, size, flip);
+        const col = Math.round((a - shift - offsetPx) / P); // bleibt beim Wandern gleich
+        this.drawShape(kind === 'symbols' ? shapeAt(col, j) : kind, color, x, y, size, flip);
       }
     }
   }

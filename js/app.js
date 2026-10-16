@@ -1,10 +1,10 @@
 // OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.0.1';
-import { Tracker } from './tracker.js?v=2.0.1';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.0.1';
-import * as store from './store.js?v=2.0.1';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.0.1';
-import { T, EN, LOCALE } from './i18n.js?v=2.0.1';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.0.2';
+import { Tracker } from './tracker.js?v=2.0.2';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.0.2';
+import * as store from './store.js?v=2.0.2';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.0.2';
+import { T, EN, LOCALE } from './i18n.js?v=2.0.2';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -26,7 +26,7 @@ const DEVICE_PRESETS = [
   { id: 'custom', label: T('Eigener Wert', 'Custom value'), ppi: null },
 ];
 const PATTERN_LABEL = {
-  stripes: T('Streifen', 'Stripes'), star: T('Stern', 'Star'), moon: T('Mond', 'Moon'), sun: T('Sonne', 'Sun'),
+  stripes: T('Streifen', 'Stripes'), symbols: T('Symbole', 'Symbols'), star: T('Stern', 'Star'), moon: T('Mond', 'Moon'), sun: T('Sonne', 'Sun'),
   fish: T('Fisch', 'Fish'), dog: T('Hund', 'Dog'), rabbit: T('Hase', 'Rabbit'), elephant: T('Elefant', 'Elephant'),
 };
 const COLOR_LABEL = { black: T('Schwarz', 'Black'), red: T('Rot', 'Red'), blue: T('Blau', 'Blue') };
@@ -57,7 +57,12 @@ let device = loadDevice();
 function saveDevice() { try { localStorage.setItem('okr-device', JSON.stringify(device)); } catch { /* privat */ } }
 
 const pxPerCm = () => device.ppi / 2.54;
-const condOf = (p) => ({ ...DEFAULT_COND, ...(p?.condition || {}) });
+// Frühere Einzelfiguren (z. B. „fish“) werden zu „Symbole“
+const condOf = (p) => {
+  const c = { ...DEFAULT_COND, ...(p?.condition || {}) };
+  if (c.pattern !== 'stripes') c.pattern = 'symbols';
+  return c;
+};
 const condKey = (c) => `${c.pattern}|${c.color}|${c.periodDeg}|${c.speeds.join('/')}`;
 const condText = (c) => `${PATTERN_LABEL[c.pattern]} · ${COLOR_LABEL[c.color]} · ${fmt(c.periodDeg, 0)}° · ${c.speeds.join(' / ')} °/s`;
 
