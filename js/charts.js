@@ -1,5 +1,6 @@
 // Diagramme mit Chart.js (globales `Chart` aus index.html). Farben kommen aus den CSS-Tokens.
-import { T, LOCALE } from './i18n.js?v=2.0.3';
+// Achsen laufen auch bei Schrift von rechts nach links von links nach rechts (Zeit, + = rechts).
+import { t, LOCALE, RTL } from './i18n.js?v=2.1.0';
 
 const charts = new Map();
 
@@ -25,6 +26,7 @@ function base() {
     plugins: {
       legend: { labels: { boxWidth: 12, boxHeight: 2, color: css('--ink') } },
       tooltip: {
+        rtl: RTL,
         backgroundColor: css('--surface'),
         titleColor: css('--ink'),
         bodyColor: css('--ink'),
@@ -59,10 +61,10 @@ export function traceChart(canvas, points, axisLabel) {
   o.plugins.legend.display = false;
   o.plugins.tooltip.callbacks = {
     title: (items) => `${fmt(items[0].parsed.x, 2)} s`,
-    label: (item) => `${T('Auge', 'Eye')}: ${fmt(item.parsed.y, 1)}°`,
+    label: (item) => `${t('eye')}: ${fmt(item.parsed.y, 1)}°`,
   };
   o.scales.x.type = 'linear';
-  o.scales.x.title = { display: true, text: T('Zeit im Block (s)', 'Time in block (s)') };
+  o.scales.x.title = { display: true, text: t('time_in_block_s') };
   o.scales.y.title = { display: true, text: axisLabel };
   return make(canvas, {
     type: 'line',
@@ -84,17 +86,17 @@ export function traceChart(canvas, points, axisLabel) {
 export function gainChart(canvas, series, title) {
   const o = base();
   o.plugins.legend.display = false; // Legende steht einmal über allen vier Diagrammen
-  o.plugins.title = { display: true, text: title, color: css('--ink'), align: 'start', font: { weight: '600' } };
+  o.plugins.title = { display: true, text: title, color: css('--ink'), align: RTL ? 'end' : 'start', font: { weight: '600' } };
   o.plugins.tooltip.callbacks = {
     title: (items) => `${items[0].parsed.x} °/s`,
-    label: (item) => `${item.dataset.label}: Gain ${fmt(item.parsed.y)}`,
+    label: (item) => `${item.dataset.label}: ${t('gain')} ${fmt(item.parsed.y)}`,
   };
   o.scales.x.type = 'linear';
-  o.scales.x.title = { display: true, text: T('Streifen (°/s)', 'Stripes (°/s)') };
+  o.scales.x.title = { display: true, text: t('stripes_s') };
   const speeds = [...new Set(series.flatMap((s) => s.points.map((p) => p.x)))].sort((a, b) => a - b);
   o.scales.x.afterBuildTicks = (axis) => { axis.ticks = speeds.map((value) => ({ value })); };
   if (speeds.length) { o.scales.x.min = speeds[0] - 2; o.scales.x.max = speeds[speeds.length - 1] + 2; }
-  o.scales.y.title = { display: true, text: 'Gain' };
+  o.scales.y.title = { display: true, text: t('gain') };
   o.scales.y.suggestedMin = 0;
   o.scales.y.suggestedMax = 1.1;
   return make(canvas, {
@@ -124,11 +126,11 @@ export function asymChart(canvas, series) {
     label: (item) => `${item.dataset.label}: ${fmt(item.parsed.y, 0)} %`,
   };
   o.scales.x.grid = { display: false };
-  o.scales.y.title = { display: true, text: T('Asymmetrie (%)', 'Asymmetry (%)') };
+  o.scales.y.title = { display: true, text: t('chart_asym') };
   return make(canvas, {
     type: 'bar',
     data: {
-      labels: [T('Horizontal (rechts vs. links)', 'Horizontal (right vs. left)'), T('Vertikal (oben vs. unten)', 'Vertical (up vs. down)')],
+      labels: [t('horizontal_right_vs_left'), t('vertical_up_vs_down')],
       datasets: series.map((s) => ({
         label: s.label,
         data: [s.asymH, s.asymV].map((v) => (Number.isFinite(v) ? v : null)),
@@ -148,7 +150,7 @@ export function asymChart(canvas, series) {
 export function timelineChart(canvas, labels, values, opts = {}) {
   const o = base();
   o.plugins.legend.display = false;
-  o.plugins.title = { display: !!opts.title, text: opts.title, color: css('--ink'), align: 'start', font: { weight: '600' } };
+  o.plugins.title = { display: !!opts.title, text: opts.title, color: css('--ink'), align: RTL ? 'end' : 'start', font: { weight: '600' } };
   o.plugins.tooltip.callbacks = {
     label: (item) => {
       const ci = opts.ci?.[item.dataIndex];

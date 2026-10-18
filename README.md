@@ -4,7 +4,7 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 
 **App öffnen:** https://twe-nlb.github.io/NLB-OKR/ (in Safari, Gerät quer halten)
 
-**Englische Version:** https://twe-nlb.github.io/NLB-OKR/EN/. Beide Versionen nutzen denselben Programmcode (`js/i18n.js` wählt die Sprache über `<html lang>`) und teilen sich auf einem Gerät dieselben Messungen.
+**Sprachen:** Deutsch, Englisch, Hebräisch. Auswahl oben rechts in der App; die Wahl wird gespeichert. Direkte Links: `?lang=de`, `?lang=en`, `?lang=he` (z. B. https://twe-nlb.github.io/NLB-OKR/?lang=he). Der alte Link https://twe-nlb.github.io/NLB-OKR/EN/ öffnet die App auf Englisch. Alle Sprachen teilen sich auf einem Gerät dieselben Messungen.
 
 ## Ablauf (Schnellcheck)
 
@@ -19,7 +19,7 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 
 - Die Messungen liegen im Browser-Speicher des Geräts. Es wird nichts an einen Server gesendet, und es wird kein Video gespeichert.
 - **Exportieren** öffnet das Teilen-Menü: *In „Dateien“ sichern*, AirDrop oder die SeaFile-App.
-- Jede Messung wird als `.json` (vollständig, wieder importierbar) und als `.csv` (für Excel, deutsches Format) gespeichert.
+- Jede Messung wird als `.json` (vollständig, wieder importierbar) und als `.csv` (für Excel, Zahlenformat passend zur Sprache) gespeichert.
 - **Importieren** lädt `.json`-Dateien zurück, zum Beispiel auf einem anderen Gerät.
 - Safari kann Website-Daten nach längerer Nichtnutzung löschen. Deshalb Messungen regelmäßig exportieren.
 - Tipp: Über *Teilen → Zum Home-Bildschirm* läuft die App im Vollbild.
@@ -40,6 +40,16 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 
 [docs/NLB-OKR_Dokumentation.docx](docs/NLB-OKR_Dokumentation.docx) erklärt die App und alle Messwerte, mit Bezug zu Hirnbereichen und Augenmuskeln und 39 PubMed-Quellen. Neu erzeugen mit `python3 docs/make_doc.py docs/NLB-OKR_Dokumentation.docx` (benötigt `python-docx`).
 
+## Sprachen hinzufügen
+
+Alle Texte der App stehen in `lang/<code>.json` (ein Eintrag je Text, z. B. `"start_measurement": "Messung starten"`), die Liste der Sprachen in `lang/languages.json`. Eine neue Sprache braucht keine Programmänderung:
+
+1. `lang/en.json` kopieren, z. B. nach `lang/fr.json`, und nur die Texte rechts vom Doppelpunkt übersetzen. Platzhalter in geschweiften Klammern wie `{n}` oder `{name}` unverändert lassen.
+2. In `lang/languages.json` eintragen: `{ "code": "fr", "name": "Français", "locale": "fr-FR" }`. Für Schrift von rechts nach links (Hebräisch, Arabisch) zusätzlich `"dir": "rtl"`.
+3. Versionsnummer `?v=` erhöhen (siehe unten) und hochladen.
+
+Fehlt in einer Sprache ein Text, zeigt die App die englische Fassung. Die feste Anweisung (`instruction`) muss in jeder Sprache sorgfältig übersetzt und danach nicht mehr verändert werden, sonst sind Messungen nicht vergleichbar.
+
 ## Entwicklung
 
 Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Auswertungstests:
@@ -48,4 +58,4 @@ Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Auswertungstes
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js
 ```
 
-Lokal starten mit `python3 -m http.server 8765`. Für die Kamera auf iPad oder iPhone ist HTTPS nötig, also über GitHub Pages testen.
+Lokal starten mit `python3 -m http.server 8765`. Bei jeder Veröffentlichung die Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (die Sprachdateien übernehmen sie automatisch), sonst lädt Safari teils alte Dateien. Für die Kamera auf iPad oder iPhone ist HTTPS nötig, also über GitHub Pages testen.

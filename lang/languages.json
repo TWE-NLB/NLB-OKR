@@ -1,0 +1,18 @@
+[
+  {
+    "code": "de",
+    "name": "Deutsch",
+    "locale": "de-DE"
+  },
+  {
+    "code": "en",
+    "name": "English",
+    "locale": "en-GB"
+  },
+  {
+    "code": "he",
+    "name": "עברית",
+    "locale": "he-IL",
+    "dir": "rtl"
+  }
+]

@@ -2,51 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>NLB OKR Quick Check</title>
-  <meta name="description" content="Optokinetic reflex: moving stripe pattern with eye tracking via the front camera">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="OKR">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="../icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="../icon-180.png">
-  <link rel="alternate" hreflang="de" href="../">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="../css/app.css?v=2.0.3">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NLB OKR</title>
+  <!-- Kurzweg: /EN/ öffnet die App auf Englisch -->
+  <meta http-equiv="refresh" content="0; url=../?lang=en">
+  <script>location.replace('../?lang=en');</script>
 </head>
-<body>
-  <header class="topbar">
-    <button id="back" class="btn ghost" hidden>‹ Overview</button>
-    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>OKR quick check</div>
-    <div class="topbar-meta" id="topmeta"></div>
-    <a class="lang-switch" href="../" hreflang="de" lang="de">Deutsch</a>
-  </header>
-
-  <main id="main"></main>
-
-  <!-- Full-screen layer for calibration and measurement -->
-  <div id="fs" hidden>
-    <canvas id="stage"></canvas>
-    <div id="hud" hidden></div>
-    <div id="overlay" hidden></div>
-  </div>
-
-  <video id="cam" playsinline muted autoplay class="cam-off"></video>
-  <div id="rotate" hidden><div>Please rotate the device to landscape.</div></div>
-  <div id="toast" role="status" aria-live="polite" hidden></div>
-
-  <script type="module" src="../js/app.js?v=2.0.3"></script>
-  <script>
-    // Falls das Programm nicht startet (z. B. alte Dateien im Browser-Cache), Hinweis statt leerer Seite
-    setTimeout(function () {
-      var m = document.getElementById('main');
-      if (m && !m.children.length) m.innerHTML = '<div class="panel notice">The app could not be loaded. Please reload the page. If that does not help, clear Safari history and website data for this page.</div>';
-    }, 4000);
-  </script>
-</body>
+<body><a href="../?lang=en">Open the app in English</a></body>
 </html>

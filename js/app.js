@@ -1,35 +1,36 @@
 // OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.0.3';
-import { Tracker } from './tracker.js?v=2.0.3';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.0.3';
-import * as store from './store.js?v=2.0.3';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.0.3';
-import { T, EN, LOCALE } from './i18n.js?v=2.0.3';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.1.0';
+import { Tracker } from './tracker.js?v=2.1.0';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.1.0';
+import * as store from './store.js?v=2.1.0';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.1.0';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.1.0';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
 const pct = (v) => (Number.isFinite(v) ? `${Math.round(v * 100)} %` : '–');
 const signed = (v, d = 0) => (Number.isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v), d) : '–');
-const dirLabel = (d) => (EN ? DIRS[d].labelEn : DIRS[d].label);
+const dirLabel = (d) => t(`dir_${d}`);
 const dateStr = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const dateShort = (iso) => new Date(iso).toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit', year: '2-digit' });
 const fmtCi = (v) => (Number.isFinite(v) && v < 10 ? fmt(v, 1) : fmt(v, 0));
-const qualityLabel = (q) => (EN ? { gut: 'good', 'mäßig': 'fair', 'ungültig': 'invalid' }[q] ?? q : q);
+// Qualität wird intern deutsch gespeichert (gut/mäßig/ungültig), angezeigt in der gewählten Sprache
+const qualityLabel = (q) => t({ gut: 'quality_good', 'mäßig': 'quality_fair', 'ungültig': 'quality_invalid' }[q] ?? q);
 
 // ---------- Konstanten ----------
 const DEVICE_PRESETS = [
   { id: 'ipad', label: 'iPad / iPad Air / iPad Pro', ppi: 132 },
   { id: 'ipadmini', label: 'iPad mini', ppi: 163 },
-  { id: 'iphone', label: T('iPhone (aktuelle Modelle)', 'iPhone (current models)'), ppi: 153 },
+  { id: 'iphone', label: t('iphone_current_models'), ppi: 153 },
   { id: 'iphonese', label: 'iPhone SE / mini', ppi: 163 },
-  { id: 'custom', label: T('Eigener Wert', 'Custom value'), ppi: null },
+  { id: 'custom', label: t('custom_value'), ppi: null },
 ];
 const PATTERN_LABEL = {
-  stripes: T('Streifen', 'Stripes'), symbols: T('Symbole', 'Symbols'), star: T('Stern', 'Star'), moon: T('Mond', 'Moon'), sun: T('Sonne', 'Sun'),
-  fish: T('Fisch', 'Fish'), dog: T('Hund', 'Dog'), rabbit: T('Hase', 'Rabbit'), elephant: T('Elefant', 'Elephant'),
+  stripes: t('pattern_stripes'), symbols: t('pattern_symbols'), star: t('shape_star'), moon: t('shape_moon'), sun: t('shape_sun'),
+  fish: t('shape_fish'), dog: t('shape_dog'), rabbit: t('shape_rabbit'), elephant: t('shape_elephant'),
 };
-const COLOR_LABEL = { black: T('Schwarz', 'Black'), red: T('Rot', 'Red'), blue: T('Blau', 'Blue') };
+const COLOR_LABEL = { black: t('colour_black'), red: t('colour_red'), blue: t('colour_blue') };
 const DEFAULT_COND = { pattern: 'stripes', color: 'black', periodDeg: 8, speeds: [8, 12], vertical: false };
 const REPS = 3;               // Wiederholungen je Richtung und Geschwindigkeit
 const BLOCK_SEC = 8;          // Dauer einer Runde
@@ -37,8 +38,7 @@ const PRE_SEC = 3;            // Pause mit Fixierkreuz vor jeder Runde
 const CAL_DWELL = 1.8, CAL_SETTLE = 0.7;
 const FACE_SPEED_LIMIT = 1.0; // Augenabstände pro Sekunde im Kamerabild → „Wackeln“
 const AUTO_START_SEC = 2;     // Setup-Check: so lange alles grün → Kalibrierung startet
-const INSTRUCTION = T('„Schau ganz entspannt auf das Bild. Du darfst mit den Augen mitgehen. Halte den Kopf still.“',
-  '“Look at the picture in a relaxed way. You may follow it with your eyes. Keep your head still.”');
+const INSTRUCTION = t('instruction');
 
 // ---------- Zustand ----------
 const state = { persons: [], measurements: [], view: 'home', personId: null, calib: null, run: null };
@@ -64,7 +64,7 @@ const condOf = (p) => {
   return c;
 };
 const condKey = (c) => `${c.pattern}|${c.color}|${c.periodDeg}|${c.speeds.join('/')}`;
-const condText = (c) => `${PATTERN_LABEL[c.pattern]} · ${COLOR_LABEL[c.color]} · ${fmt(c.periodDeg, 0)}° · ${c.speeds.join(' / ')} °/s`;
+const condText = (c) => `${PATTERN_LABEL[c.pattern]} · ${COLOR_LABEL[c.color]} · ${ltr(`${fmt(c.periodDeg, 0)}° · ${c.speeds.join(' / ')} °/s`)}`;
 
 function buildPlan(c) {
   const plan = [];
@@ -76,8 +76,8 @@ function buildPlan(c) {
 // ---------- Hilfen ----------
 let toastTimer;
 function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3500);
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
 }
 const personById = (id) => state.persons.find((p) => p.id === id);
 function slug(s) { return String(s).normalize('NFKD').replace(/[^\w-]+/g, '_').replace(/_+/g, '_').slice(0, 30) || 'Person'; }
@@ -123,48 +123,48 @@ function showHome() {
   const preset = DEVICE_PRESETS.find((p) => p.id === device.device);
   setView('home', `
     <div class="home-head">
-      <img class="logo" src="${EN ? '../' : ''}img/nlb-logo.jpg" width="150" height="58" alt="NeuroLifeBalance">
-      <div><h1>${T('OKR-Schnellcheck', 'OKR quick check')}</h1>
-      <p class="hint">${T('Asymmetrie und Gain des optokinetischen Reflexes, Vergleich nur mit den eigenen früheren Messungen', 'Asymmetry and gain of the optokinetic reflex, compared only with the person’s own earlier measurements')}</p></div>
+      <img class="logo" src="img/nlb-logo.jpg" width="150" height="58" alt="NeuroLifeBalance">
+      <div><h1>${t('app_title')}</h1>
+      <p class="hint">${t('asymmetry_and_gain_of_the_optokinetic')}</p></div>
     </div>
-    ${device.configured ? '' : `<div class="notice row">${T('Bitte zuerst das Gerät einrichten (Abstand und Gerätetyp). Das ist nur einmal nötig.', 'Please set up the device first (distance and device type). This is only needed once.')} <button class="btn" data-act="device">${T('Gerät einrichten', 'Set up device')}</button></div>`}
+    ${device.configured ? '' : `<div class="notice row">${t('please_set_up_the_device_first')} <button class="btn" data-act="device">${t('set_up_device')}</button></div>`}
     <div class="grid-2">
       <div class="panel">
-        <h2>${T('Personen', 'People')}</h2>
+        <h2>${t('people')}</h2>
         <form id="person-form" class="row">
-          <label for="person-name" class="sr">${T('Pseudonym oder Kürzel', 'Pseudonym or code')}</label>
-          <input id="person-name" placeholder="${T('Pseudonym oder Kürzel, z. B. P01', 'Pseudonym or code, e.g. P01')}" autocomplete="off" maxlength="40" required>
-          <button class="btn" type="submit">${T('Anlegen', 'Add')}</button>
+          <label for="person-name" class="sr">${t('pseudonym_or_code')}</label>
+          <input id="person-name" placeholder="${t('pseudonym_or_code_e_g_p01')}" autocomplete="off" maxlength="40" required>
+          <button class="btn" type="submit">${t('add')}</button>
         </form>
         <ul class="list">${persons.length ? persons.map((p) => `
           <li><button class="link grow" data-person="${p.id}">
             <div class="title">${esc(p.name)}</div>
-            <div class="sub">${counts[p.id] || 0} ${T('Messung(en)', 'measurement(s)')} · ${esc(condText(condOf(p)))}</div>
+            <div class="sub">${counts[p.id] || 0} ${t('measurement_s')} · ${esc(condText(condOf(p)))}</div>
           </button><span class="chev" aria-hidden="true">›</span></li>`).join('')
-          : `<li class="empty">${T('Noch keine Person angelegt.', 'No people yet.')}</li>`}</ul>
-        <p class="hint">${T('Bitte nur Pseudonyme verwenden. Alle Daten bleiben auf diesem Gerät.', 'Please use pseudonyms only. All data stay on this device.')}</p>
+          : `<li class="empty">${t('no_people_yet')}</li>`}</ul>
+        <p class="hint">${t('please_use_pseudonyms_only_all_data')}</p>
       </div>
       <div class="panel">
-        <h2>${T('Gerät und Daten', 'Device and data')}</h2>
+        <h2>${t('device_and_data')}</h2>
         <dl class="kv">
-          <dt>${T('Abstand', 'Distance')}</dt><dd>${device.distanceCm} cm</dd>
-          <dt>${T('Gerät', 'Device')}</dt><dd>${esc(preset?.label ?? '')} (${device.ppi})</dd>
+          <dt>${t('distance')}</dt><dd>${device.distanceCm} cm</dd>
+          <dt>${t('device')}</dt><dd>${esc(preset?.label ?? '')} (${device.ppi})</dd>
         </dl>
         <div class="row" style="margin-top:12px">
-          <button class="btn" data-act="device">${T('Gerät einrichten', 'Set up device')}</button>
-          <label class="btn ghost" for="import-file">${T('Importieren', 'Import')}</label>
+          <button class="btn" data-act="device">${t('set_up_device')}</button>
+          <label class="btn ghost" for="import-file">${t('import')}</label>
           <input id="import-file" type="file" accept=".json,application/json" multiple hidden>
-          <button class="btn ghost" data-act="export-all">${T('Alle exportieren', 'Export all')}</button>
+          <button class="btn ghost" data-act="export-all">${t('export_all')}</button>
         </div>
-        <h3 style="margin-top:18px">${T('Ablauf', 'Procedure')}</h3>
+        <h3 style="margin-top:18px">${t('procedure')}</h3>
         <ol class="steps">
-          <li>${T('Person wählen, Anweisung vorlesen, „Messung starten“.', 'Choose the person, read out the instruction, “Start measurement”.')}</li>
-          <li>${T('Setup-Check: Sobald alles grün ist, startet die Kalibrierung automatisch.', 'Setup check: as soon as everything is green, calibration starts automatically.')}</li>
-          <li>${T('Kalibrierung: dem Hasen mit den Augen folgen.', 'Calibration: follow the rabbit with the eyes.')}</li>
-          <li>${T('Messung: ← → im Wechsel, je 3-mal bei 2 Geschwindigkeiten (optional auch ↑ ↓). Antippen pausiert.', 'Measurement: ← → alternating, 3 times each at 2 speeds (optionally also ↑ ↓). Tap to pause.')}</li>
-          <li>${T('Ergebnis: Asymmetrie und Gain, Verlauf bei der Person.', 'Result: asymmetry and gain, history for the person.')}</li>
+          <li>${t('choose_the_person_read_out_the')}</li>
+          <li>${t('setup_check_as_soon_as_everything')}</li>
+          <li>${t('calibration_follow_the_rabbit_with_the')}</li>
+          <li>${t('measurement_alternating_3_times_each_at')}</li>
+          <li>${t('result_asymmetry_and_gain_history_for')}</li>
         </ol>
-        <p class="hint">${T('Safari kann Website-Daten nach längerer Nichtnutzung löschen. Bitte regelmäßig exportieren.', 'Safari may delete website data after a long period of non-use. Please export regularly.')}</p>
+        <p class="hint">${t('safari_may_delete_website_data_after')}</p>
       </div>
     </div>`);
 
@@ -172,7 +172,7 @@ function showHome() {
     e.preventDefault();
     const name = $('#person-name').value.trim();
     if (!name) return;
-    if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(T(`„${name}“ gibt es schon.`, `“${name}” already exists.`)); return; }
+    if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(t('person_exists', { name })); return; }
     const p = { id: store.uid(), name, createdAt: new Date().toISOString(), condition: { ...DEFAULT_COND } };
     await store.put('persons', p); state.persons.push(p);
     showHome();
@@ -192,17 +192,17 @@ function showHome() {
 function showDevice() {
   setView('device', `
     <div class="panel narrow">
-      <h2>${T('Gerät einrichten', 'Set up device')}</h2>
-      <p class="hint">${T('Einmalig durch die Therapeutin oder den Therapeuten. Gemessen wird immer mit dem iPad quer im Ständer.', 'Done once by the therapist. Measurements are always taken with the iPad in landscape in a stand.')}</p>
+      <h2>${t('set_up_device')}</h2>
+      <p class="hint">${t('done_once_by_the_therapist_measurements')}</p>
       <form id="device-form" class="form">
-        <div class="field"><label for="distance">${T('Abstand Auge–Bildschirm', 'Distance eye–screen')}</label>
+        <div class="field"><label for="distance">${t('distance_eye_screen')}</label>
           <div class="unit"><input id="distance" type="number" inputmode="decimal" min="20" max="80" step="1" value="${device.distanceCm}"><span>cm</span></div></div>
-        <div class="field"><label for="device">${T('Gerät', 'Device')}</label>
+        <div class="field"><label for="device">${t('device')}</label>
           <select id="device">${DEVICE_PRESETS.map((p) => `<option value="${p.id}" ${p.id === device.device ? 'selected' : ''}>${esc(p.label)}${p.ppi ? ` (${p.ppi})` : ''}</option>`).join('')}</select></div>
-        <div class="field" id="ppi-field" ${device.device === 'custom' ? '' : 'hidden'}><label for="ppi">${T('Bildpunkte pro Zoll', 'Points per inch')}</label>
+        <div class="field" id="ppi-field" ${device.device === 'custom' ? '' : 'hidden'}><label for="ppi">${t('points_per_inch')}</label>
           <div class="unit"><input id="ppi" type="number" min="80" max="300" step="1" value="${device.ppi}"><span>pt/in</span></div></div>
-        <p class="hint">${T('Den Abstand mit Lineal oder Maßband messen und bei jeder Messung gleich halten.', 'Measure the distance with a ruler or tape measure and keep it the same for every measurement.')}</p>
-        <div class="row"><button class="btn primary" type="submit">${T('Speichern', 'Save')}</button></div>
+        <p class="hint">${t('measure_the_distance_with_a_ruler')}</p>
+        <div class="row"><button class="btn primary" type="submit">${t('save')}</button></div>
       </form>
     </div>`);
   $('#device').addEventListener('change', () => { $('#ppi-field').hidden = $('#device').value !== 'custom'; });
@@ -215,9 +215,9 @@ function showDevice() {
       ppi: DEVICE_PRESETS.find((p) => p.id === id).ppi ?? (parseFloat($('#ppi').value) || 132),
       configured: true,
     };
-    saveDevice(); toast(T('Gerät gespeichert.', 'Device saved.')); showHome();
+    saveDevice(); toast(t('device_saved')); showHome();
   });
-  $('#topmeta').textContent = T('Gerät', 'Device');
+  $('#topmeta').textContent = t('device');
 }
 
 // ---------- Person: Start, Bedingungen, Verlauf ----------
@@ -244,56 +244,56 @@ function showPerson(pid) {
   setView('person', `
     <div class="panel">
       <div class="result-head">
-        <div><h2>${esc(p.name)}</h2><div class="meta">${esc(condText(c))}${c.vertical ? T(' · mit ↑ ↓', ' · with ↑ ↓') : ''}</div></div>
-        <div class="row"><button class="btn primary big" data-act="start" ${device.configured ? '' : 'disabled'}>${T('Messung starten', 'Start measurement')}</button></div>
+        <div><h2>${esc(p.name)}</h2><div class="meta">${esc(condText(c))}${c.vertical ? ` · ${t('with_vertical')}` : ''}</div></div>
+        <div class="row"><button class="btn primary big" data-act="start" ${device.configured ? '' : 'disabled'}>${t('start_measurement')}</button></div>
       </div>
-      ${device.configured ? '' : `<p class="notice">${T('Bitte zuerst das Gerät einrichten (Übersicht).', 'Please set up the device first (overview).')}</p>`}
-      <div class="instruction"><span class="k">${T('Bitte wörtlich vorlesen', 'Please read out word for word')}</span>${INSTRUCTION}</div>
+      ${device.configured ? '' : `<p class="notice">${t('please_set_up_device_overview')}</p>`}
+      <div class="instruction"><span class="k">${t('please_read_out_word_for_word')}</span>${INSTRUCTION}</div>
       <details class="cond">
-        <summary>${T('Messbedingungen ändern', 'Change measurement conditions')}</summary>
+        <summary>${t('change_measurement_conditions')}</summary>
         <form id="cond-form" class="form">
-          <div class="field"><label for="pattern">${T('Muster', 'Pattern')}</label>
+          <div class="field"><label for="pattern">${t('pattern')}</label>
             <select id="pattern">${PATTERNS.map((k) => `<option value="${k}" ${k === c.pattern ? 'selected' : ''}>${PATTERN_LABEL[k]}</option>`).join('')}</select></div>
-          <fieldset><legend>${T('Farbe', 'Colour')}</legend><div class="seg">
+          <fieldset><legend>${t('colour')}</legend><div class="seg">
             ${Object.keys(COLORS).map((k) => `<input type="radio" name="color" id="col-${k}" value="${k}" ${k === c.color ? 'checked' : ''}><label for="col-${k}"><i class="swatch" style="background:${COLORS[k]}"></i>${COLOR_LABEL[k]}</label>`).join('')}
           </div></fieldset>
-          <div class="field"><label for="period">${T('Breite (Paar Farbe + Weiß)', 'Width (colour + white pair)')}</label>
+          <div class="field"><label for="period">${t('width_colour_white_pair')}</label>
             <div class="unit"><input id="period" type="number" min="2" max="20" step="0.5" value="${c.periodDeg}"><span>°</span></div></div>
-          <div class="field"><label for="speed1">${T('Geschwindigkeiten', 'Speeds')}</label>
-            <div class="unit"><input id="speed1" type="number" min="2" max="40" step="1" value="${c.speeds[0]}"><span>/</span><input id="speed2" type="number" min="2" max="40" step="1" value="${c.speeds[1]}" aria-label="${T('Zweite Geschwindigkeit', 'Second speed')}"><span>°/s</span></div></div>
-          <label class="confirm"><input type="checkbox" id="vertical" ${c.vertical ? 'checked' : ''}> ${T('Zusätzlich senkrecht messen (↑ ↓)', 'Also measure vertically (↑ ↓)')}</label>
-          <p class="hint">${T('Achtung: Messungen mit anderen Bedingungen sind nicht mit früheren vergleichbar und erscheinen im Verlauf getrennt.', 'Note: measurements with different conditions are not comparable with earlier ones and appear separately in the history.')}</p>
-          <div class="row"><button class="btn" type="submit">${T('Übernehmen', 'Apply')}</button></div>
+          <div class="field"><label for="speed1">${t('speeds')}</label>
+            <div class="unit"><input id="speed1" type="number" min="2" max="40" step="1" value="${c.speeds[0]}"><span>/</span><input id="speed2" type="number" min="2" max="40" step="1" value="${c.speeds[1]}" aria-label="${t('second_speed')}"><span>°/s</span></div></div>
+          <label class="confirm"><input type="checkbox" id="vertical" ${c.vertical ? 'checked' : ''}> ${t('also_measure_vertically')}</label>
+          <p class="hint">${t('note_measurements_with_different_conditions_are')}</p>
+          <div class="row"><button class="btn" type="submit">${t('apply')}</button></div>
         </form>
       </details>
     </div>
     ${ordered.length ? ordered.map(([k, list], gi) => `
       <div class="panel">
-        <div class="panel-head"><h3>${T('Verlauf', 'History')} · ${esc(condText(list[0].condition))}</h3>${k === curKey ? '' : `<span class="pill">${T('andere Bedingungen', 'other conditions')}</span>`}</div>
+        <div class="panel-head"><h3>${t('history')} · ${esc(condText(list[0].condition))}</h3>${k === curKey ? '' : `<span class="pill">${t('other_conditions')}</span>`}</div>
         <div class="chart-grid">
           <div class="chart-box"><canvas id="tl-h-${gi}"></canvas></div>
           <div class="chart-box"><canvas id="tl-g-${gi}"></canvas></div>
           ${list.some((m) => m.result.v) ? `<div class="chart-box"><canvas id="tl-v-${gi}"></canvas></div>` : ''}
         </div>
         <div class="table-wrap"><table>
-          <thead><tr><th>${T('Datum', 'Date')}</th><th class="num">${T('Rechts/links', 'Right/left')}</th><th class="num">${T('Oben/unten', 'Up/down')}</th><th class="num">Gain</th><th></th></tr></thead>
+          <thead><tr><th>${t('date')}</th><th class="num">${t('right_left')}</th><th class="num">${t('up_down')}</th><th class="num">${t('gain')}</th><th></th></tr></thead>
           <tbody>${list.map((m, i) => `<tr class="clickable" data-open="${m.id}">
-            <td>${dateStr(m.createdAt)}${i === 0 ? ` <span class="pill">${T('Ausgangsmessung', 'Baseline')}</span>` : ''}</td>
+            <td>${dateStr(m.createdAt)}${i === 0 ? ` <span class="pill">${t('baseline')}</span>` : ''}</td>
             <td class="num">${signed(m.result.h.mean)} %</td>
             <td class="num">${m.result.v ? `${signed(m.result.v.mean)} %` : '–'}</td>
             <td class="num">${fmt(m.result.gain)}</td><td class="chev">›</td></tr>`).join('')}</tbody>
         </table></div>
       </div>`).join('')
-    : `<div class="panel"><p class="empty">${T('Noch keine Messung. „Messung starten“ tippen.', 'No measurement yet. Tap “Start measurement”.')}</p></div>`}
-    ${legacy.length ? `<div class="panel"><h3>${T('Ältere Messungen (Version 1, nicht vergleichbar)', 'Older measurements (version 1, not comparable)')}</h3>
+    : `<div class="panel"><p class="empty">${t('no_measurement_yet_tap_start_measurement')}</p></div>`}
+    ${legacy.length ? `<div class="panel"><h3>${t('older_measurements_version_1_not_comparable')}</h3>
       <ul class="list">${legacy.map((m) => `<li><button class="link grow" data-open="${m.id}"><div class="title">${dateStr(m.createdAt)}</div>
       <div class="sub mono">Gain H ${fmt(m.summary?.gainH)} · V ${fmt(m.summary?.gainV)}</div></button></li>`).join('')}</ul></div>` : ''}`);
 
   ordered.forEach(([, list], gi) => {
     const labels = list.map((m) => dateShort(m.createdAt));
-    timelineChart($(`#tl-h-${gi}`), labels, list.map((m) => m.result.h.mean), { title: T('Asymmetrie rechts/links (%)', 'Asymmetry right/left (%)'), unit: ' %', zero: true, ci: list.map((m) => m.result.h.ci) });
-    timelineChart($(`#tl-g-${gi}`), labels, list.map((m) => m.result.gain), { title: 'Gain', digits: 2 });
-    if ($(`#tl-v-${gi}`)) timelineChart($(`#tl-v-${gi}`), labels, list.map((m) => m.result.v?.mean), { title: T('Asymmetrie oben/unten (%)', 'Asymmetry up/down (%)'), unit: ' %', zero: true, ci: list.map((m) => m.result.v?.ci) });
+    timelineChart($(`#tl-h-${gi}`), labels, list.map((m) => m.result.h.mean), { title: t('chart_asym_rl'), unit: ' %', zero: true, ci: list.map((m) => m.result.h.ci) });
+    timelineChart($(`#tl-g-${gi}`), labels, list.map((m) => m.result.gain), { title: t('gain'), digits: 2 });
+    if ($(`#tl-v-${gi}`)) timelineChart($(`#tl-v-${gi}`), labels, list.map((m) => m.result.v?.mean), { title: t('chart_asym_ud'), unit: ' %', zero: true, ci: list.map((m) => m.result.v?.ci) });
   });
 
   $('#cond-form').addEventListener('submit', async (e) => {
@@ -307,7 +307,7 @@ function showPerson(pid) {
       vertical: $('#vertical').checked,
     };
     await store.put('persons', p);
-    toast(T('Bedingungen übernommen.', 'Conditions applied.'));
+    toast(t('conditions_applied'));
     showPerson(pid);
   });
   main.onclick = (e) => {
@@ -321,7 +321,7 @@ function showPerson(pid) {
 
 // ---------- Messung starten → Setup-Check ----------
 let checkBuf = [], checkOff = null, checkTimer = null, greenSince = null;
-const STATUS = { camera: T('Kamera wird gestartet …', 'Starting camera …'), model: T('Gesichtserkennung wird geladen …', 'Loading face detection …') };
+const STATUS = { camera: t('starting_camera'), model: t('loading_face_detection') };
 
 function startMeasurement() {
   // Vollbild und Display-Sperre müssen direkt im Tipp angefragt werden
@@ -333,11 +333,11 @@ function startMeasurement() {
     <div class="check-layout">
       <div class="cam-box" id="cam-box"><div class="cam-status" id="cam-status">${STATUS.camera}</div></div>
       <div class="panel">
-        <h2>${T('Setup-Check', 'Setup check')}</h2>
+        <h2>${t('setup_check')}</h2>
         <ul class="checks" id="checks"></ul>
-        <p class="hint">${T(`iPad quer im Ständer, Kamera auf Augenhöhe, Licht von vorne, Abstand ${device.distanceCm} cm.`, `iPad in landscape in a stand, camera at eye level, light from the front, distance ${device.distanceCm} cm.`)}</p>
+        <p class="hint">${t('setup_hint', { cm: device.distanceCm })}</p>
         <p class="auto" id="auto"></p>
-        <div class="row"><button id="start-calib" class="btn primary" disabled>${T('Kalibrierung jetzt starten', 'Start calibration now')}</button></div>
+        <div class="row"><button id="start-calib" class="btn primary" disabled>${t('start_calibration_now')}</button></div>
         <p class="hint">${esc(condText(c))}</p>
       </div>
     </div>`);
@@ -356,8 +356,8 @@ async function startCheck() {
     if (s) {
       s.hidden = false;
       s.textContent = err.name === 'NotAllowedError'
-        ? T('Kein Kamerazugriff. Bitte in den Einstellungen → Safari → Kamera erlauben und Seite neu laden.', 'No camera access. Please allow the camera under Settings → Safari → Camera and reload the page.')
-        : T(`Kamera oder Gesichtserkennung konnte nicht starten (${err.message || err.name}).`, `Camera or face detection could not start (${err.message || err.name}).`);
+        ? t('no_camera_access_please_allow_the')
+        : t('camera_start_failed', { error: err.message || err.name });
     }
     return;
   }
@@ -375,22 +375,22 @@ function evalChecks() {
   const faceFrac = checkBuf.length ? faces.length / checkBuf.length : 0;
   const items = [];
   const add = (label, status, val) => items.push({ label, status, val });
-  add(T('Kamera', 'Camera'), tracker.fps >= 20 ? 'good' : tracker.fps >= 12 ? 'warn' : 'bad', `${tracker.fps} ${T('Bilder/s', 'fps')}`);
-  add(T('Gesicht erkannt', 'Face detected'), faceFrac >= 0.9 ? 'good' : faceFrac >= 0.5 ? 'warn' : 'bad', pct(faceFrac));
+  add(t('camera'), tracker.fps >= 20 ? 'good' : tracker.fps >= 12 ? 'warn' : 'bad', `${tracker.fps} ${t('fps')}`);
+  add(t('face_detected'), faceFrac >= 0.9 ? 'good' : faceFrac >= 0.5 ? 'warn' : 'bad', pct(faceFrac));
   const open = median(faces.map((s) => s.open));
-  add(T('Augen offen', 'Eyes open'), !faces.length ? 'bad' : open >= 0.18 ? 'good' : open >= 0.12 ? 'warn' : 'bad', fmt(open, 2));
+  add(t('eyes_open'), !faces.length ? 'bad' : open >= 0.18 ? 'good' : open >= 0.12 ? 'warn' : 'bad', fmt(open, 2));
   const b = tracker.brightness;
-  add(T('Licht', 'Light'), b >= 70 && b <= 230 ? 'good' : b >= 45 ? 'warn' : 'bad', Number.isFinite(b) ? `${Math.round((b / 255) * 100)} %` : '–');
+  add(t('light'), b >= 70 && b <= 230 ? 'good' : b >= 45 ? 'warn' : 'bad', Number.isFinite(b) ? `${Math.round((b / 255) * 100)} %` : '–');
   if (faces.length) {
     const f = faces[faces.length - 1];
     const dx = f.cx / f.w - 0.5, dy = f.cy / f.h - 0.5;
-    add(T('Gesicht mittig', 'Face centred'), Math.abs(dx) < 0.25 && Math.abs(dy) < 0.3 ? 'good' : 'bad',
-      Math.abs(dx) >= 0.25 ? (dx > 0 ? T('weiter nach links', 'move left') : T('weiter nach rechts', 'move right')) : Math.abs(dy) >= 0.3 ? (dy > 0 ? T('Kamera tiefer', 'camera lower') : T('Kamera höher', 'camera higher')) : 'ok');
+    add(t('face_centred'), Math.abs(dx) < 0.25 && Math.abs(dy) < 0.3 ? 'good' : 'bad',
+      Math.abs(dx) >= 0.25 ? (dx > 0 ? t('move_left') : t('move_right')) : Math.abs(dy) >= 0.3 ? (dy > 0 ? t('camera_lower') : t('camera_higher')) : 'ok');
     const jitter = Math.max(sd(faces.map((s) => s.cx)), sd(faces.map((s) => s.cy))) / median(faces.map((s) => s.scale));
-    add(T('Kopf ruhig', 'Head steady'), jitter < 0.03 ? 'good' : jitter < 0.06 ? 'warn' : 'bad', jitter < 0.03 ? T('ruhig', 'steady') : T('unruhig', 'unsteady'));
+    add(t('head_steady'), jitter < 0.03 ? 'good' : jitter < 0.06 ? 'warn' : 'bad', jitter < 0.03 ? t('steady') : t('unsteady'));
   } else {
-    add(T('Gesicht mittig', 'Face centred'), 'bad', '–');
-    add(T('Kopf ruhig', 'Head steady'), 'bad', '–');
+    add(t('face_centred'), 'bad', '–');
+    add(t('head_steady'), 'bad', '–');
   }
   return items;
 }
@@ -405,7 +405,7 @@ function renderChecks() {
   if (!ok) { greenSince = null; $('#auto').textContent = ''; return; }
   greenSince ??= now;
   const left = Math.ceil(AUTO_START_SEC - (now - greenSince));
-  $('#auto').textContent = left > 0 ? T(`Alles bereit – Kalibrierung startet in ${left} s`, `All set – calibration starts in ${left} s`) : '';
+  $('#auto').textContent = left > 0 ? t('auto_start_in', { s: left }) : '';
   if (now - greenSince >= AUTO_START_SEC) beginCalibration();
 }
 
@@ -442,7 +442,7 @@ function beginCalibration() {
   let n = 3;
   const tick = () => {
     stage.fill();
-    overlay(`<h2>${T('Gleich geht es los', 'Starting soon')}</h2><p>${T('Schau dem Hasen nach. Kopf stillhalten.', 'Follow the rabbit with your eyes. Keep your head still.')}</p><p class="big-count">${n}</p>`);
+    overlay(`<h2>${t('starting_soon')}</h2><p>${t('follow_the_rabbit_with_your_eyes')}</p><p class="big-count">${n}</p>`);
     if (n-- <= 0) { $('#overlay').hidden = true; runCalibration(c); return; }
     setTimeout(tick, 1000);
   };
@@ -474,18 +474,12 @@ function runCalibration(c) {
   requestAnimationFrame(frame);
 }
 
-function issueEn(code) {
+function issueText(code) {
   if (code.startsWith('weak:')) {
     const [n, total] = code.slice(5).split('/');
-    return `The eyes were detected too rarely at ${n} of ${total} points. Add more light, keep the face centred, remove reflective glasses if needed.`;
+    return t('calib_issue_weak', { n, total });
   }
-  return {
-    horizontal: 'Left/right eye movement was not detected cleanly. Follow the target with your eyes only; do not turn your head.',
-    vertical: 'Up/down eye movement was not detected cleanly. Open the eyes wide enough, light from the front, keep the head straight.',
-    center: 'The centre point was not looked at consistently. Please fixate each target steadily.',
-    head: 'The head moved during calibration. Please keep the head still or support it.',
-    'head-hand': 'The device moved during calibration.',
-  }[code] ?? code;
+  return t(`calib_issue_${code.replace('-', '_')}`);
 }
 
 function finishCalibration(points, c) {
@@ -493,14 +487,14 @@ function finishCalibration(points, c) {
   stage.fill();
   if (res.ok) {
     state.calib = res;
-    overlay(`<h2><span class="pill good">${T('Kalibrierung OK', 'Calibration OK')}</span></h2><p>${T('Die Messung startet gleich.', 'The measurement starts in a moment.')}</p>`);
+    overlay(`<h2><span class="pill good">${t('calibration_ok')}</span></h2><p>${t('the_measurement_starts_in_a_moment')}</p>`);
     setTimeout(() => { $('#overlay').hidden = true; startRun(c); }, 1500);
     return;
   }
   overlay(`
-    <h2><span class="pill bad">${T('Kalibrierung nicht OK', 'Calibration not OK')}</span></h2>
-    <ul>${(EN ? res.codes.map(issueEn) : res.issues).map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
-    <div class="row"><button class="btn" data-act="back">${T('Abbrechen', 'Cancel')}</button><button class="btn primary" data-act="repeat">${T('Wiederholen', 'Repeat')}</button></div>`,
+    <h2><span class="pill bad">${t('calibration_not_ok')}</span></h2>
+    <ul>${res.codes.map(issueText).map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+    <div class="row"><button class="btn" data-act="back">${t('cancel')}</button><button class="btn primary" data-act="repeat">${t('repeat')}</button></div>`,
   (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'repeat') { $('#overlay').hidden = true; runCalibration(c); }
@@ -547,8 +541,8 @@ function onRunSample(s) {
 function distanceHint(M) {
   const r = M.scaleSmooth / state.calib.scale0;
   if (!Number.isFinite(r)) return '';
-  if (r > 1.15) return T(' · bitte etwas weiter weg', ' · please move back a little');
-  if (r < 0.87) return T(' · bitte etwas näher', ' · please come a little closer');
+  if (r > 1.15) return ` · ${t('please_move_back_a_little')}`;
+  if (r < 0.87) return ` · ${t('please_come_a_little_closer')}`;
   return '';
 }
 
@@ -559,10 +553,10 @@ function runFrame() {
   const el = now - M.phaseStart;
   const b = M.plan[M.i], dir = DIRS[b.dir];
   const left = M.plan.length - M.i;
-  const rounds = T(`noch ${left} Runden`, `${left} rounds left`);
-  $('#hud').textContent = `${dir.arrow} ${b.speed} °/s · ${rounds}${distanceHint(M)}`;
+  const rounds = t('rounds_left', { n: left });
+  $('#hud').textContent = `${dir.arrow} ${ltr(`${b.speed} °/s`)} · ${rounds}${distanceHint(M)}`;
   if (M.phase === 'pre') {
-    stage.fixation(dir.arrow, `${dirLabel(b.dir)} · ${b.speed} °/s`, rounds, { done: M.i, total: M.plan.length });
+    stage.fixation(dir.arrow, `${dirLabel(b.dir)} · ${ltr(`${b.speed} °/s`)}`, rounds, { done: M.i, total: M.plan.length });
     if (el >= PRE_SEC) { M.phase = 'stim'; M.phaseStart = now; }
   } else {
     const speedPx = ((b.speed * Math.PI) / 180) * device.distanceCm * pxPerCm();
@@ -612,9 +606,9 @@ function pauseRun() {
   M.paused = true;
   stage.fill();
   overlay(`
-    <h2>${T('Pausiert', 'Paused')}</h2>
-    <p>${T(`Runde ${M.i + 1} von ${M.plan.length}. Die unterbrochene Runde startet beim Fortsetzen neu.`, `Round ${M.i + 1} of ${M.plan.length}. The interrupted round restarts when you resume.`)}</p>
-    <div class="row"><button class="btn danger" data-act="end">${T('Messung beenden', 'End measurement')}</button><button class="btn primary" data-act="resume">${T('Fortsetzen', 'Resume')}</button></div>`,
+    <h2>${t('paused')}</h2>
+    <p>${t('paused_info', { i: M.i + 1, n: M.plan.length })}</p>
+    <div class="row"><button class="btn danger" data-act="end">${t('end_measurement')}</button><button class="btn primary" data-act="resume">${t('resume')}</button></div>`,
   (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act) return;
@@ -645,7 +639,7 @@ async function finishRun() {
   exitFullscreen(); stopTracking();
   const blocks = finalBlocks(M);
   const p = personById(state.personId);
-  if (!blocks.length) { toast(T('Messung beendet, keine Runde abgeschlossen. Nichts gespeichert.', 'Measurement ended, no round completed. Nothing saved.')); showPerson(p.id); return; }
+  if (!blocks.length) { toast(t('measurement_ended_no_round_completed_nothing')); showPerson(p.id); return; }
   const cal = state.calib;
   const used = new Set(blocks.map((b) => `${b.planIdx}|${b.attempt}`));
   const keep = M.samples.filter((x) => used.has(`${x.block}|${x.attempt}`));
@@ -667,7 +661,7 @@ async function finishRun() {
         x.valid ? r(cal.ax + cal.bx * x.fx, 2) : null, x.valid && M.c.vertical ? r(cal.ay + cal.by * x.fy, 2) : null, r(x.scale, 1)]),
     },
   };
-  try { await store.put('measurements', m); } catch (err) { console.error(err); toast(T('Speichern im Browser fehlgeschlagen. Bitte sofort exportieren.', 'Saving in the browser failed. Please export immediately.')); }
+  try { await store.put('measurements', m); } catch (err) { console.error(err); toast(t('saving_in_the_browser_failed_please')); }
   state.measurements.push(m);
   showResult(m, true);
 }
@@ -678,30 +672,22 @@ function baselineOf(m) {
 }
 
 function rlText(h) {
-  if (!h || h.n < 2) return { cls: 'warn', title: T('Rechts/links: keine Aussage', 'Right/left: no statement'), body: T('Zu wenige gültige Runden für eine Aussage. Bitte Messung wiederholen.', 'Too few valid rounds for a statement. Please repeat the measurement.') };
-  const v = `${signed(h.mean)} %`, ci = `± ${fmtCi(h.ci)} %`;
-  const weakRight = h.mean < 0;
+  if (!h || h.n < 2) return { cls: 'warn', title: t('right_left_no_statement'), body: t('too_few_valid_rounds_for_a') };
+  const v = ltr(`${signed(h.mean)} %`), ci = ltr(`± ${fmtCi(h.ci)} %`);
+  const side = h.mean < 0 ? 'right' : 'left'; // schwächer verfolgte Richtung
   if (h.verdict === 'deutlich') {
-    return {
-      cls: 'bad',
-      title: T(`Richtungsunterschied: ${weakRight ? 'rechts' : 'links'} schwächer`, `Direction difference: ${weakRight ? 'right' : 'left'} weaker`),
-      body: T(
-        `${v}, deutlich über der Messschwankung (${ci}): Nach ${weakRight ? 'rechts' : 'links'} laufende Muster wurden schwächer verfolgt. Dieses Muster entspricht Läsionsstudien, in denen der OKN zur Seite einer ${weakRight ? 'rechtsseitigen' : 'linksseitigen'} Hirnschädigung schwächer war. Ob es bei dieser Person dieselbe Ursache hat, kann die Messung nicht zeigen. Kleine Unterschiede können auch gerätebedingt sein.`,
-        `${v}, clearly above the measurement fluctuation (${ci}): patterns moving ${weakRight ? 'right' : 'left'} were followed less well. This pattern matches lesion studies in which OKN towards the side of ${weakRight ? 'right' : 'left'}-sided brain damage was weaker. Whether this person has the same cause cannot be shown by the measurement. Small differences can also be caused by the device.`),
-    };
+    return { cls: 'bad', title: t(`rl_clear_title_${side}`), body: t(`rl_clear_body_${side}`, { v, ci }) };
   }
   if (h.verdict === 'gering') {
-    return { cls: 'good', title: T('Kein deutlicher Richtungsunterschied', 'No clear direction difference'),
-      body: T(`${v} (Messschwankung ${ci}). Unterschiede unter ${ASYM_MIN} % wertet die App nicht als auffällig.`, `${v} (measurement fluctuation ${ci}). The app does not rate differences below ${ASYM_MIN} % as notable.`) };
+    return { cls: 'good', title: t('no_clear_direction_difference'), body: t('rl_small_body', { v, ci, min: ASYM_MIN }) };
   }
-  return { cls: 'warn', title: T('Richtungsunterschied unklar', 'Direction difference unclear'),
-    body: T(`${v}, aber die Messschwankung ist mit ${ci} zu groß für eine sichere Aussage. Bitte Messung wiederholen.`, `${v}, but the measurement fluctuation of ${ci} is too large for a reliable statement. Please repeat the measurement.`) };
+  return { cls: 'warn', title: t('direction_difference_unclear'), body: t('rl_unclear_body', { v, ci }) };
 }
 
 function changeLine(cur, base, unit, digits, isBase) {
-  if (isBase) return T('Dies ist die Ausgangsmessung. Aussagekräftig ist die Veränderung bei späteren Messungen.', 'This is the baseline measurement. What matters is the change in later measurements.');
+  if (isBase) return t('this_is_the_baseline_measurement_what');
   if (!Number.isFinite(cur) || !Number.isFinite(base)) return '';
-  return T(`Veränderung zur Ausgangsmessung: ${signed(cur - base, digits)}${unit}`, `Change from baseline: ${signed(cur - base, digits)}${unit}`);
+  return t('change_from_baseline', { value: ltr(`${signed(cur - base, digits)}${unit}`) });
 }
 
 function showResult(m, fresh = false) {
@@ -714,55 +700,54 @@ function showResult(m, fresh = false) {
   const rl = rlText(res.h);
   const v = res.v;
   const vText = v && v.n >= 2
-    ? T(`${v.mean >= 0 ? 'Oben' : 'Unten'} stärker (Messschwankung ± ${fmtCi(v.ci)} %). Ein Vorteil nach oben ist bei Gesunden häufig, und senkrechte Unterschiede sind individuell verschieden. Aussagekräftig ist die Veränderung gegenüber den eigenen früheren Messungen.`,
-      `${v.mean >= 0 ? 'Up' : 'Down'} stronger (measurement fluctuation ± ${fmtCi(v.ci)} %). An upward advantage is common in healthy people, and vertical differences vary between individuals. What matters is the change compared with the person’s own earlier measurements.`)
-    : T('Zu wenige gültige Runden.', 'Too few valid rounds.');
+    ? t(v.mean >= 0 ? 'ud_body_up' : 'ud_body_down', { ci: ltr(`± ${fmtCi(v.ci)} %`) })
+    : t('too_few_valid_rounds');
   const blocks = [...m.blocks].sort((a, b) => 'LRUD'.indexOf(a.dir) - 'LRUD'.indexOf(b.dir) || a.speed - b.speed || a.rep - b.rep);
-  const pp = T(' Prozentpunkte', ' percentage points');
+  const pp = ` ${t('percentage_points')}`;
 
   setView('result', `
     <div class="panel">
       <div class="result-head">
         <div><h2>${esc(m.personName)}</h2>
-        <div class="meta">${dateStr(m.createdAt)} · ${esc(condText(m.condition))}${isBase ? ` · ${T('Ausgangsmessung', 'Baseline')}` : ` · ${T('Ausgangsmessung', 'Baseline')}: ${dateShort(base.createdAt)}`}</div></div>
-        <div class="row"><button class="btn danger" data-act="delete">${T('Löschen', 'Delete')}</button><button class="btn primary" data-act="export">${T('Exportieren', 'Export')}</button></div>
+        <div class="meta">${dateStr(m.createdAt)} · ${esc(condText(m.condition))}${isBase ? ` · ${t('baseline')}` : ` · ${t('baseline')}: ${dateShort(base.createdAt)}`}</div></div>
+        <div class="row"><button class="btn danger" data-act="delete">${t('delete')}</button><button class="btn primary" data-act="export">${t('export')}</button></div>
       </div>
-      ${fresh ? `<p class="hint">${T('Gespeichert auf diesem Gerät. Zum Sichern „Exportieren“ tippen.', 'Saved on this device. To back it up, tap “Export”.')}</p>` : ''}
-      <div id="del-confirm" class="notice" hidden>${T('Diese Messung wirklich löschen? Exportierte Dateien bleiben erhalten.', 'Really delete this measurement? Exported files are kept.')}
-        <div class="row" style="margin-top:8px"><button class="btn" data-act="del-no">${T('Behalten', 'Keep')}</button><button class="btn danger" data-act="del-yes">${T('Endgültig löschen', 'Delete permanently')}</button></div></div>
+      ${fresh ? `<p class="hint">${t('saved_on_this_device_to_back')}</p>` : ''}
+      <div id="del-confirm" class="notice" hidden>${t('really_delete_this_measurement_exported_files')}
+        <div class="row" style="margin-top:8px"><button class="btn" data-act="del-no">${t('keep')}</button><button class="btn danger" data-act="del-yes">${t('delete_permanently')}</button></div></div>
     </div>
     <div class="result-tiles">
       <div class="panel rtile ${rl.cls}">
-        <div class="k">${T('Asymmetrie rechts/links', 'Asymmetry right/left')}</div>
+        <div class="k">${t('asymmetry_right_left')}</div>
         <div class="v">${signed(res.h.mean)} %</div>
         <h3>${esc(rl.title)}</h3><p>${esc(rl.body)}</p>
         <p class="hint">${esc(changeLine(res.h.mean, base?.result.h.mean, pp, 0, isBase))}</p>
       </div>
       ${v ? `<div class="panel rtile">
-        <div class="k">${T('Asymmetrie oben/unten', 'Asymmetry up/down')}</div>
+        <div class="k">${t('asymmetry_up_down')}</div>
         <div class="v">${signed(v.mean)} %</div>
         <p>${esc(vText)}</p>
         <p class="hint">${esc(changeLine(v.mean, base?.result.v?.mean, pp, 0, isBase))}</p>
       </div>` : ''}
       <div class="panel rtile">
-        <div class="k">Gain</div>
+        <div class="k">${t('gain')}</div>
         <div class="v">${fmt(res.gain)}</div>
-        <p>${T('Wie schnell die Augen dem Muster folgen (1,0 = gleich schnell). Nur mit eigenen Messungen unter gleichen Bedingungen vergleichbar.', 'How fast the eyes follow the pattern (1.0 = equally fast). Only comparable with the person’s own measurements under the same conditions.')}</p>
+        <p>${t('how_fast_the_eyes_follow_the')}</p>
         <p class="sub mono">← ${fmt(res.gainByDir.L)} · → ${fmt(res.gainByDir.R)}${v ? ` · ↑ ${fmt(res.gainByDir.U)} · ↓ ${fmt(res.gainByDir.D)}` : ''}</p>
         <p class="hint">${esc(changeLine(res.gain, base?.result.gain, '', 2, isBase))}</p>
       </div>
     </div>
     <details class="panel" id="details">
-      <summary>${T('Details: einzelne Runden', 'Details: individual rounds')} (${res.validBlocks}/${res.totalBlocks} ${T('gültig', 'valid')})</summary>
+      <summary>${t('details_individual_rounds')} (${res.validBlocks}/${res.totalBlocks} ${t('valid')})</summary>
       <div class="table-wrap"><table>
-        <thead><tr><th>${T('Richtung', 'Direction')}</th><th class="num">°/s</th><th class="num">${T('Runde', 'Round')}</th><th class="num">Gain</th><th class="num">${T('Augen erkannt', 'Eyes detected')}</th><th class="num">${T('Wackeln', 'Shaking')}</th><th>${T('Qualität', 'Quality')}</th></tr></thead>
+        <thead><tr><th>${t('direction')}</th><th class="num">°/s</th><th class="num">${t('round')}</th><th class="num">${t('gain')}</th><th class="num">${t('eyes_detected')}</th><th class="num">${t('shaking')}</th><th>${t('quality')}</th></tr></thead>
         <tbody>${blocks.map((b) => `<tr><td>${DIRS[b.dir].arrow} ${dirLabel(b.dir)}</td><td class="num">${b.speed}</td><td class="num">${b.rep}${b.retry ? '*' : ''}</td>
           <td class="num">${fmt(b.gain)}</td><td class="num">${pct(b.validPct)}</td><td class="num">${pct(b.shakePct)}</td>
           <td><span class="pill ${b.quality === 'gut' ? 'good' : b.quality === 'mäßig' ? 'warn' : 'bad'}">${esc(qualityLabel(b.quality))}</span></td></tr>`).join('')}</tbody>
       </table></div>
-      <p class="hint">${T('* automatisch wiederholte Runde. Asymmetrie je Runde: (rechts − links) ÷ Mittelwert; Messschwankung = 95-%-Vertrauensbereich aus den Wiederholungen.', '* automatically repeated round. Asymmetry per round: (right − left) ÷ mean; measurement fluctuation = 95 % confidence interval from the repetitions.')}</p>
-      <div class="panel-head" style="margin-top:12px"><h3>${T('Augenbewegung in einer Runde', 'Eye movement in one round')}</h3>
-        <select id="trace-block" aria-label="${T('Runde', 'Round')}">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${b.speed} °/s · ${T('Runde', 'round')} ${b.rep}</option>`).join('')}</select></div>
+      <p class="hint">${t('automatically_repeated_round_asymmetry_per_round')}</p>
+      <div class="panel-head" style="margin-top:12px"><h3>${t('eye_movement_in_one_round')}</h3>
+        <select id="trace-block" aria-label="${t('round')}">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${b.speed} °/s · ${t('round')} ${b.rep}</option>`).join('')}</select></div>
       <div class="chart-box"><canvas id="trace-canvas"></canvas></div>
     </details>`);
 
@@ -774,7 +759,7 @@ function showResult(m, fresh = false) {
     const ax = DIRS[b.dir].axis === 'x' ? F.ex : F.ey;
     const t0 = rows[0]?.[F.t] ?? 0;
     traceChart($('#trace-canvas'), rows.map((row) => ({ x: row[F.t] - t0, y: row[ax] })),
-      DIRS[b.dir].axis === 'x' ? T('Auge horizontal (°, + = rechts)', 'Eye horizontal (°, + = right)') : T('Auge vertikal (°, + = unten)', 'Eye vertical (°, + = down)'));
+      DIRS[b.dir].axis === 'x' ? t('eye_horizontal_right') : t('eye_vertical_down'));
   };
   $('#trace-block').addEventListener('change', drawTrace);
   $('#details').addEventListener('toggle', (e) => { if (e.target.open) drawTrace(); });
@@ -787,7 +772,7 @@ function showResult(m, fresh = false) {
     if (act === 'del-yes') {
       await store.remove('measurements', m.id);
       state.measurements = state.measurements.filter((x) => x.id !== m.id);
-      toast(T('Messung gelöscht.', 'Measurement deleted.'));
+      toast(t('measurement_deleted'));
       showPerson(m.personId);
     }
   };
@@ -799,22 +784,23 @@ function showLegacy(m) {
   const s = m.summary || {};
   setView('result', `<div class="panel">
     <h2>${esc(m.personName)} · ${dateStr(m.createdAt)}</h2>
-    <p class="notice">${T('Messung aus Version 1 der App (anderer Ablauf). Nicht mit Schnellcheck-Messungen vergleichbar.', 'Measurement from version 1 of the app (different procedure). Not comparable with quick-check measurements.')}</p>
-    <dl class="kv"><dt>Gain H</dt><dd>${fmt(s.gainH)}</dd><dt>Gain V</dt><dd>${fmt(s.gainV)}</dd>
-    <dt>${T('Asymmetrie R/L', 'Asymmetry R/L')}</dt><dd>${signed(s.asymH)} %</dd><dt>${T('Asymmetrie O/U', 'Asymmetry U/D')}</dt><dd>${signed(s.asymV)} %</dd></dl>
-    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="export">${T('Exportieren', 'Export')}</button></div></div>`);
+    <p class="notice">${t('measurement_from_version_1_of_the')}</p>
+    <dl class="kv"><dt>${t('gain')} H</dt><dd>${fmt(s.gainH)}</dd><dt>${t('gain')} V</dt><dd>${fmt(s.gainV)}</dd>
+    <dt>${t('asymmetry_r_l')}</dt><dd>${signed(s.asymH)} %</dd><dt>${t('asymmetry_u_d')}</dt><dd>${signed(s.asymV)} %</dd></dl>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="export">${t('export')}</button></div></div>`);
   main.onclick = (e) => { if (e.target.closest('[data-act]')?.dataset.act === 'export') exportMeasurement(m); };
   $('#topmeta').textContent = m.personName;
 }
 
 // ---------- Export / Import ----------
-const CSV_SEP = EN ? ',' : ';';
+// Dezimalkomma → Semikolon als Trenner (wie Excel es in diesen Sprachen erwartet)
+const DEC = (1.5).toLocaleString(LOCALE).replace(/\d/g, '')[0] || '.';
+const CSV_SEP = DEC === ',' ? ';' : ',';
+const CSV_COLS = ['person', 'date', 'pattern', 'colour', 'width', 'direction', 'speed', 'round', 'gain', 'eyes', 'shaking', 'quality', 'asym_rl', 'asym_ud', 'gain_mean'];
 function csvFor(list) {
-  const n = (v, d = 3) => (Number.isFinite(v) ? (EN ? v.toFixed(d) : v.toFixed(d).replace('.', ',')) : '');
+  const n = (v, d = 3) => (Number.isFinite(v) ? v.toFixed(d).replace('.', DEC) : '');
   const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
-  const cols = EN
-    ? ['Person', 'Date', 'Pattern', 'Colour', 'Width °', 'Direction', 'Speed °/s', 'Round', 'Gain', 'Eyes detected %', 'Shaking %', 'Quality', 'Asymmetry R/L %', 'Asymmetry U/D %', 'Gain (mean)']
-    : ['Person', 'Datum', 'Muster', 'Farbe', 'Breite °', 'Richtung', 'Geschwindigkeit °/s', 'Runde', 'Gain', 'Augen erkannt %', 'Wackeln %', 'Qualität', 'Asymmetrie R/L %', 'Asymmetrie O/U %', 'Gain (Mittel)'];
+  const cols = CSV_COLS.map((c) => t(`csv_${c}`));
   const rows = [cols.map(q).join(CSV_SEP)];
   for (const m of list.filter(isQuick)) {
     for (const b of m.blocks) {
@@ -831,17 +817,17 @@ function exportMeasurement(m) {
   store.offerFiles([
     { name: `${base}.json`, type: 'application/json', text: JSON.stringify(m) },
     { name: `${base}.csv`, type: 'text/csv', text: csvFor([m]) },
-  ]).then((r) => r !== 'aborted' && toast(T('Export bereitgestellt.', 'Export ready.')));
+  ]).then((r) => r !== 'aborted' && toast(t('export_ready')));
 }
 
 function exportAll() {
-  if (!state.measurements.length) { toast(T('Es gibt noch keine Messungen.', 'There are no measurements yet.')); return; }
+  if (!state.measurements.length) { toast(t('there_are_no_measurements_yet')); return; }
   const now = new Date().toISOString();
   const bundle = { format: 'nlb-okr-bundle', version: 2, exportedAt: now, persons: state.persons, measurements: state.measurements };
   store.offerFiles([
-    { name: `OKR_${T('Alle', 'All')}_${stamp(now)}.json`, type: 'application/json', text: JSON.stringify(bundle) },
-    { name: `OKR_${T('Alle', 'All')}_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(state.measurements) },
-  ]).then((r) => r !== 'aborted' && toast(T('Export bereitgestellt.', 'Export ready.')));
+    { name: `OKR_${t('export_file_all')}_${stamp(now)}.json`, type: 'application/json', text: JSON.stringify(bundle) },
+    { name: `OKR_${t('export_file_all')}_${stamp(now)}.csv`, type: 'text/csv', text: csvFor(state.measurements) },
+  ]).then((r) => r !== 'aborted' && toast(t('export_ready')));
 }
 
 async function importFiles(e) {
@@ -863,23 +849,37 @@ async function importFiles(e) {
       }
     } catch (err) {
       console.error(err);
-      toast(T(`„${file.name}“ ist keine OKR-Datei.`, `“${file.name}” is not an OKR file.`));
+      toast(t('not_okr_file', { name: file.name }));
     }
   }
   e.target.value = '';
   showHome();
-  if (added || skipped) toast(T(`${added} Messung(en) importiert${skipped ? `, ${skipped} schon vorhanden` : ''}.`, `${added} measurement(s) imported${skipped ? `, ${skipped} already present` : ''}.`));
+  if (added || skipped) toast(t(skipped ? 'imported_skipped' : 'imported', { n: added, skipped }));
 }
 
 // ---------- Start ----------
+// Feste Texte der Seite und Sprachauswahl
+function initShell() {
+  document.title = t('doc_title');
+  $('#back').textContent = t('back_overview');
+  $('#brand-name').textContent = t('app_title');
+  $('#rotate div').textContent = t('rotate_device');
+  const sel = $('#lang-select');
+  sel.innerHTML = LANGS.map((l) => `<option value="${l.code}" lang="${l.code}" ${l.code === LANG ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
+  sel.setAttribute('aria-label', t('language'));
+  sel.hidden = LANGS.length < 2;
+  sel.addEventListener('change', () => setLang(sel.value));
+}
+
 async function init() {
+  initShell();
   try {
     [state.persons, state.measurements] = await Promise.all([store.getAll('persons'), store.getAll('measurements')]);
   } catch (err) {
     console.error(err);
-    toast(T('Gerätespeicher nicht verfügbar (privates Fenster?). Messungen sofort exportieren.', 'Device storage not available (private window?). Export measurements immediately.'));
+    toast(t('device_storage_not_available_private_window'));
   }
   showHome();
-  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) toast(T('Kamera nur über HTTPS verfügbar.', 'Camera only available over HTTPS.'));
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) toast(t('camera_only_available_over_https'));
 }
 init();
