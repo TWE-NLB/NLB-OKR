@@ -142,6 +142,14 @@ export class Stage {
     }
     const size = P / 2;
     const flip = axis === 'x' && sign < 0; // Tiere schauen in Laufrichtung
+    if (axis === 'y') {
+      // Senkrecht: nur eine Spalte in der Bildschirmmitte, je Zeile ein Symbol
+      for (let a = start - P; a < along + P; a += P) {
+        const col = Math.round((a - offsetPx) / P);
+        this.drawShape(kind === 'symbols' ? shapeAt(col, 0) : kind, color, w / 2, a, size, flip);
+      }
+      return;
+    }
     for (let j = 0, b = P / 2; b - size < across; j++, b += P) {
       const shift = (j % 2) * (P / 2);
       for (let a = start + shift - P; a < along + P; a += P) {

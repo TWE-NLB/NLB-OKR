@@ -1,5 +1,5 @@
 // Diagramme mit Chart.js (globales `Chart` aus index.html). Farben kommen aus den CSS-Tokens.
-import { T, LOCALE } from './i18n.js?v=2.0.2';
+import { T, LOCALE } from './i18n.js?v=2.0.3';
 
 const charts = new Map();
 
