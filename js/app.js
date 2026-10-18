@@ -1,10 +1,10 @@
 // OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.1.0';
-import { Tracker } from './tracker.js?v=2.1.0';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.1.0';
-import * as store from './store.js?v=2.1.0';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.1.0';
-import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.1.0';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.1.1';
+import { Tracker } from './tracker.js?v=2.1.1';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.1.1';
+import * as store from './store.js?v=2.1.1';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.1.1';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.1.1';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -865,7 +865,7 @@ function initShell() {
   $('#brand-name').textContent = t('app_title');
   $('#rotate div').textContent = t('rotate_device');
   const sel = $('#lang-select');
-  sel.innerHTML = LANGS.map((l) => `<option value="${l.code}" lang="${l.code}" ${l.code === LANG ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
+  sel.innerHTML = LANGS.map((l) => `<option value="${l.code}" lang="${l.code}" ${l.code === LANG ? 'selected' : ''}>${l.flag ? `${l.flag}\u2002\u00a0` : ''}${esc(l.name)}</option>`).join('');
   sel.setAttribute('aria-label', t('language'));
   sel.hidden = LANGS.length < 2;
   sel.addEventListener('change', () => setLang(sel.value));

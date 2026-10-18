@@ -61,10 +61,20 @@ const DRAW = {
     ctx.beginPath(); ctx.moveTo(-0.27, 0); ctx.lineTo(-0.42, -0.16); ctx.stroke();
   },
   rabbit(ctx) {
-    ell(ctx, 0, 0.2, 0.22, 0.24);
-    circ(ctx, 0, -0.1, 0.15);
-    ell(ctx, -0.07, -0.34, 0.05, 0.15, -0.15);
-    ell(ctx, 0.07, -0.34, 0.05, 0.15, 0.15);
+    // Sitzender Hase von der Seite: lange Ohren, runder Rücken, Puschelschwanz
+    ell(ctx, -0.07, 0.14, 0.29, 0.2, -0.22);             // Körper, vorne höher
+    circ(ctx, -0.15, 0.17, 0.19);                        // Hinterbein (Keule)
+    ell(ctx, -0.06, 0.35, 0.21, 0.05);                   // Hinterpfote
+    ell(ctx, 0.13, 0.05, 0.11, 0.17, 0.35);              // Hals/Brust
+    ell(ctx, 0.17, 0.32, 0.075, 0.045);                  // Vorderpfote
+    rect(ctx, 0.12, 0.12, 0.07, 0.2);                    // Vorderbein
+    ell(ctx, 0.25, -0.07, 0.15, 0.12, 0.3);              // Kopf
+    ell(ctx, 0.09, -0.3, 0.05, 0.18, -0.5);              // hinteres Ohr
+    ell(ctx, 0.17, -0.31, 0.055, 0.19, -0.3);            // vorderes Ohr
+    circ(ctx, -0.36, 0.05, 0.08);                        // Schwanz
+    ctx.globalCompositeOperation = 'destination-out';
+    circ(ctx, 0.29, -0.09, 0.025);                       // Auge
+    ctx.globalCompositeOperation = 'source-over';
   },
   elephant(ctx) {
     ell(ctx, -0.04, 0.02, 0.32, 0.2);
@@ -125,13 +135,15 @@ export class Stage {
   }
 
   // Bewegtes Muster. axis 'x': waagerechte Bewegung, 'y': senkrechte Bewegung.
-  // Streifen: Paarbreite periodPx (halb farbig, halb weiß). Symbole: Größe ≈ Streifenbreite, Raster im Abstand periodPx, Figur je Rasterplatz zufällig.
+  // Streifen: Paarbreite periodPx (halb farbig, halb weiß), über den ganzen Bildschirm.
+  // Symbole: nur eine Reihe (waagerecht) bzw. eine Spalte (senkrecht) in der Bildschirmmitte,
+  // Abstand periodPx, Größe ≈ Streifenbreite, Figur je Platz zufällig.
   pattern(kind, color, axis, offsetPx, periodPx, sign = 1) {
     const { ctx, w, h } = this;
     this.fill();
     const P = Math.max(8, periodPx);
     const start = (((offsetPx % P) + P) % P) - P;
-    const along = axis === 'x' ? w : h, across = axis === 'x' ? h : w;
+    const along = axis === 'x' ? w : h;
     if (kind === 'stripes') {
       ctx.fillStyle = COLORS[color] || COLORS.black;
       for (let p = start; p < along; p += P) {
@@ -142,21 +154,10 @@ export class Stage {
     }
     const size = P / 2;
     const flip = axis === 'x' && sign < 0; // Tiere schauen in Laufrichtung
-    if (axis === 'y') {
-      // Senkrecht: nur eine Spalte in der Bildschirmmitte, je Zeile ein Symbol
-      for (let a = start - P; a < along + P; a += P) {
-        const col = Math.round((a - offsetPx) / P);
-        this.drawShape(kind === 'symbols' ? shapeAt(col, 0) : kind, color, w / 2, a, size, flip);
-      }
-      return;
-    }
-    for (let j = 0, b = P / 2; b - size < across; j++, b += P) {
-      const shift = (j % 2) * (P / 2);
-      for (let a = start + shift - P; a < along + P; a += P) {
-        const x = axis === 'x' ? a : b, y = axis === 'x' ? b : a;
-        const col = Math.round((a - shift - offsetPx) / P); // bleibt beim Wandern gleich
-        this.drawShape(kind === 'symbols' ? shapeAt(col, j) : kind, color, x, y, size, flip);
-      }
+    for (let a = start - P; a < along + P; a += P) {
+      const n = Math.round((a - offsetPx) / P); // bleibt beim Wandern gleich
+      const [x, y] = axis === 'x' ? [a, h / 2] : [w / 2, a];
+      this.drawShape(kind === 'symbols' ? shapeAt(n, 0) : kind, color, x, y, size, flip);
     }
   }
 

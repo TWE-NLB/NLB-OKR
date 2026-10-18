@@ -45,7 +45,7 @@ Demo: Messung des optokinetischen Reflexes (OKR/OKN) auf iPad oder iPhone. Ein s
 Alle Texte der App stehen in `lang/<code>.json` (ein Eintrag je Text, z. B. `"start_measurement": "Messung starten"`), die Liste der Sprachen in `lang/languages.json`. Eine neue Sprache braucht keine Programmänderung:
 
 1. `lang/en.json` kopieren, z. B. nach `lang/fr.json`, und nur die Texte rechts vom Doppelpunkt übersetzen. Platzhalter in geschweiften Klammern wie `{n}` oder `{name}` unverändert lassen.
-2. In `lang/languages.json` eintragen: `{ "code": "fr", "name": "Français", "locale": "fr-FR" }`. Für Schrift von rechts nach links (Hebräisch, Arabisch) zusätzlich `"dir": "rtl"`.
+2. In `lang/languages.json` eintragen: `{ "code": "fr", "flag": "🇫🇷", "name": "Français", "locale": "fr-FR" }`. Die Flagge ist ein Emoji und erscheint in der Sprachauswahl vor dem Namen. Für Schrift von rechts nach links (Hebräisch, Arabisch) zusätzlich `"dir": "rtl"`.
 3. Versionsnummer `?v=` erhöhen (siehe unten) und hochladen.
 
 Fehlt in einer Sprache ein Text, zeigt die App die englische Fassung. Die feste Anweisung (`instruction`) muss in jeder Sprache sorgfältig übersetzt und danach nicht mehr verändert werden, sonst sind Messungen nicht vergleichbar.
