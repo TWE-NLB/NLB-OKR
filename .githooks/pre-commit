@@ -1,0 +1,3 @@
+#!/bin/sh
+# Geheimnis-Wächter: prüft die vorgemerkten Änderungen (siehe CLAUDE.md)
+exec python3 "$(git rev-parse --show-toplevel)/tools/secret_guard.py" --staged

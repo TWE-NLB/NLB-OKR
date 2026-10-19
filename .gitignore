@@ -1,2 +1,15 @@
 .DS_Store
 ~$*
+# Geheimnisse und persönliche Daten nie versionieren (siehe CLAUDE.md, Geheimnis-Wächter)
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+id_rsa
+id_ed25519
+OKR_*.json
+OKR_*.csv
+.claude/settings.local.json
