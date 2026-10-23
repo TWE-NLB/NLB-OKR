@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="css/app.css?v=2.1.1">
+  <link rel="stylesheet" href="css/app.css?v=2.2.0">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -39,7 +39,7 @@
   <div id="rotate" hidden><div></div></div>
   <div id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script type="module" src="js/app.js?v=2.1.1"></script>
+  <script type="module" src="js/app.js?v=2.2.0"></script>
   <script>
     // Falls das Programm nicht startet (z. B. alte Dateien im Browser-Cache), Hinweis statt leerer Seite
     setTimeout(function () {
@@ -47,8 +47,8 @@
       if (!m || m.children.length) return;
       var de = /^de/i.test(navigator.language);
       m.innerHTML = '<div class="panel notice">' + (de
-        ? 'Die App konnte nicht geladen werden. Bitte die Seite neu laden. Hilft das nicht: Safari-Verlauf und Website-Daten für diese Seite löschen.'
-        : 'The app could not be loaded. Please reload the page. If that does not help, clear Safari history and website data for this page.') + '</div>';
+        ? 'Die App konnte nicht geladen werden. Bitte die Seite neu laden. Hilft das nicht: Browserverlauf und Website-Daten für diese Seite löschen.'
+        : 'The app could not be loaded. Please reload the page. If that does not help, clear the browser history and website data for this page.') + '</div>';
     }, 6000);
   </script>
 </body>

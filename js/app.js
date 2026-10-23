@@ -1,10 +1,10 @@
 // OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.1.1';
-import { Tracker } from './tracker.js?v=2.1.1';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.1.1';
-import * as store from './store.js?v=2.1.1';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.1.1';
-import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.1.1';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.2.0';
+import { Tracker } from './tracker.js?v=2.2.0';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.2.0';
+import * as store from './store.js?v=2.2.0';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.2.0';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.2.0';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -15,6 +15,11 @@ const dirLabel = (d) => t(`dir_${d}`);
 const dateStr = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const dateShort = (iso) => new Date(iso).toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit', year: '2-digit' });
 const fmtCi = (v) => (Number.isFinite(v) && v < 10 ? fmt(v, 1) : fmt(v, 0));
+// Plattform: iPadOS meldet sich als Mac, deshalb zusätzlich die Touchpunkte prüfen
+const UA = navigator.userAgent;
+const IS_ANDROID = /Android/i.test(UA);
+const IS_IOS = /iPad|iPhone|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 // Qualität wird intern deutsch gespeichert (gut/mäßig/ungültig), angezeigt in der gewählten Sprache
 const qualityLabel = (q) => t({ gut: 'quality_good', 'mäßig': 'quality_fair', 'ungültig': 'quality_invalid' }[q] ?? q);
 
@@ -24,8 +29,12 @@ const DEVICE_PRESETS = [
   { id: 'ipadmini', label: 'iPad mini', ppi: 163 },
   { id: 'iphone', label: t('iphone_current_models'), ppi: 153 },
   { id: 'iphonese', label: 'iPhone SE / mini', ppi: 163 },
+  { id: 'card', label: t('device_card'), ppi: null },
   { id: 'custom', label: t('custom_value'), ppi: null },
 ];
+// Karte im Scheckkartenformat nach ISO/IEC 7810 ID-1
+const CARD_MM = { w: 85.6, h: 53.98, r: 3.18 };
+const CSS_PPI_ANDROID = 160; // Startwert für den Abgleich (Android-Bezugsdichte)
 const PATTERN_LABEL = {
   stripes: t('pattern_stripes'), symbols: t('pattern_symbols'), star: t('shape_star'), moon: t('shape_moon'), sun: t('shape_sun'),
   fish: t('shape_fish'), dog: t('shape_dog'), rabbit: t('shape_rabbit'), elephant: t('shape_elephant'),
@@ -49,8 +58,9 @@ const main = $('#main');
 
 function loadDevice() {
   const s = Math.min(screen.width, screen.height);
-  const dev = s < 500 ? 'iphone' : s === 744 ? 'ipadmini' : 'ipad';
-  const def = { distanceCm: 40, device: dev, ppi: DEVICE_PRESETS.find((p) => p.id === dev).ppi, configured: false };
+  // Android: zu viele Geräte für feste Werte, deshalb immer Karten-Abgleich
+  const dev = IS_ANDROID ? 'card' : s < 500 ? 'iphone' : s === 744 ? 'ipadmini' : 'ipad';
+  const def = { distanceCm: 40, device: dev, ppi: DEVICE_PRESETS.find((p) => p.id === dev).ppi ?? CSS_PPI_ANDROID, configured: false };
   try { return { ...def, ...JSON.parse(localStorage.getItem('okr-device') || '{}') }; } catch { return def; }
 }
 let device = loadDevice();
@@ -98,7 +108,25 @@ function updateRotateHint() {
   const needsLandscape = state.view === 'check' || !$('#fs').hidden;
   $('#rotate').hidden = !(needsLandscape && window.innerHeight > window.innerWidth);
 }
-window.addEventListener('resize', () => { updateRotateHint(); if (state.view === 'check') placeCam(true); });
+let cardRedraw = null;
+window.addEventListener('resize', () => {
+  updateRotateHint();
+  if (state.view === 'check') placeCam(true);
+  cardRedraw?.();
+});
+window.visualViewport?.addEventListener('resize', () => cardRedraw?.());
+
+// Android/Chrome: eigene Schaltfläche „App installieren“ statt der Leiste des Browsers
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (state.view === 'home') showHome(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; if (state.view === 'home') showHome(); });
+function installHtml() {
+  if (installPrompt) return `<div class="row" style="margin-top:12px"><button class="btn" data-act="install">${t('install_app')}</button></div>`;
+  if (isInstalled()) return '';
+  if (IS_ANDROID) return `<p class="hint">${t('install_hint_android')}</p>`;
+  if (IS_IOS) return `<p class="hint">${t('install_hint_ios')}</p>`;
+  return '';
+}
 
 // Das Kamera-Element bleibt immer im DOM (sonst liefert iOS keine Bilder) und wird nur verschoben.
 function placeCam(visible) {
@@ -148,7 +176,7 @@ function showHome() {
         <h2>${t('device_and_data')}</h2>
         <dl class="kv">
           <dt>${t('distance')}</dt><dd>${device.distanceCm} cm</dd>
-          <dt>${t('device')}</dt><dd>${esc(preset?.label ?? '')} (${device.ppi})</dd>
+          <dt>${t('device')}</dt><dd>${esc(preset?.label ?? '')} (${Math.round(device.ppi)})</dd>
         </dl>
         <div class="row" style="margin-top:12px">
           <button class="btn" data-act="device">${t('set_up_device')}</button>
@@ -165,8 +193,10 @@ function showHome() {
           <li>${t('result_asymmetry_and_gain_history_for')}</li>
         </ol>
         <p class="hint">${t('safari_may_delete_website_data_after')}</p>
+        ${installHtml()}
       </div>
-    </div>`);
+    </div>
+    <p class="hint">${t('not_a_medical_device')}</p>`);
 
   $('#person-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -184,12 +214,15 @@ function showHome() {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'device') showDevice();
     if (act === 'export-all') exportAll();
+    if (act === 'install' && installPrompt) installPrompt.prompt().then(() => { installPrompt = null; showHome(); }).catch(() => {});
   };
   $('#topmeta').textContent = '';
 }
 
 // ---------- Geräte-Einrichtung (einmalig) ----------
 function showDevice() {
+  stopTracking(); // Kamera ist bei der Einrichtung sicher aus
+  let cardPpi = device.device === 'card' && device.configured ? device.ppi : null;
   setView('device', `
     <div class="panel narrow">
       <h2>${t('set_up_device')}</h2>
@@ -200,24 +233,84 @@ function showDevice() {
         <div class="field"><label for="device">${t('device')}</label>
           <select id="device">${DEVICE_PRESETS.map((p) => `<option value="${p.id}" ${p.id === device.device ? 'selected' : ''}>${esc(p.label)}${p.ppi ? ` (${p.ppi})` : ''}</option>`).join('')}</select></div>
         <div class="field" id="ppi-field" ${device.device === 'custom' ? '' : 'hidden'}><label for="ppi">${t('points_per_inch')}</label>
-          <div class="unit"><input id="ppi" type="number" min="80" max="300" step="1" value="${device.ppi}"><span>pt/in</span></div></div>
+          <div class="unit"><input id="ppi" type="number" min="80" max="300" step="1" value="${Math.round(device.ppi || CSS_PPI_ANDROID)}"><span>pt/in</span></div></div>
+        <div id="card-field" class="card-field" ${device.device === 'card' ? '' : 'hidden'}>
+          <p>${t('card_instructions')}</p>
+          <p class="hint">${t('card_check')} ${t('card_privacy')}</p>
+          <div class="row"><button type="button" class="btn" id="card-open">${t('card_start')}</button><span class="hint" id="card-status"></span></div>
+        </div>
         <p class="hint">${t('measure_the_distance_with_a_ruler')}</p>
         <div class="row"><button class="btn primary" type="submit">${t('save')}</button></div>
       </form>
     </div>`);
-  $('#device').addEventListener('change', () => { $('#ppi-field').hidden = $('#device').value !== 'custom'; });
+
+  const showStatus = () => {
+    $('#card-status').textContent = cardPpi ? t('card_set', { value: `${fmt(cardPpi, 1)} pt/in` }) : t('card_not_set');
+  };
+  showStatus();
+  $('#device').addEventListener('change', () => {
+    const id = $('#device').value;
+    $('#ppi-field').hidden = id !== 'custom';
+    $('#card-field').hidden = id !== 'card';
+  });
+  $('#card-open').addEventListener('click', () => openCardMatch(cardPpi || device.ppi || CSS_PPI_ANDROID, (ppi) => { cardPpi = ppi; showStatus(); }));
+
   $('#device-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const id = $('#device').value;
+    if (id === 'card' && !cardPpi) { toast(t('card_not_set')); return; }
+    const ppi = id === 'card' ? cardPpi
+      : id === 'custom' ? parseFloat($('#ppi').value) || 132
+      : DEVICE_PRESETS.find((p) => p.id === id).ppi;
     device = {
       distanceCm: Math.min(80, Math.max(20, parseFloat($('#distance').value) || 40)),
       device: id,
-      ppi: DEVICE_PRESETS.find((p) => p.id === id).ppi ?? (parseFloat($('#ppi').value) || 132),
+      ppi,
       configured: true,
     };
     saveDevice(); toast(t('device_saved')); showHome();
   });
   $('#topmeta').textContent = t('device');
+}
+
+// Karten-Abgleich im Vollbild: Rahmen in Kartengröße am Bildschirmrand, Regler daneben (quer) bzw. darunter (hochkant)
+function openCardMatch(startPpi, onDone) {
+  const el = document.createElement('div');
+  el.id = 'cardmatch';
+  el.className = 'cardmatch';
+  el.innerHTML = `
+    <div class="card-frame" id="card-frame"><span class="card-label" dir="ltr">${fmt(CARD_MM.w, 1)} × ${fmt(CARD_MM.h, 0)} mm</span></div>
+    <div class="cardmatch-side">
+      <p>${t('card_short')}</p>
+      <div class="card-controls">
+        <button type="button" class="btn" data-card="-0.5" aria-label="${t('card_smaller')}">−</button>
+        <input type="range" id="card-size" min="90" max="260" step="0.5" value="${startPpi}" aria-label="${t('card_size')}">
+        <button type="button" class="btn" data-card="0.5" aria-label="${t('card_larger')}">+</button>
+      </div>
+      <p class="notice" id="card-zoom-warn" hidden>${t('card_zoom_warning')}</p>
+      <div class="row"><button type="button" class="btn" data-done="0">${t('cancel')}</button><button type="button" class="btn primary" data-done="1">${t('card_done')}</button></div>
+    </div>`;
+  document.body.appendChild(el);
+  const size = $('#card-size', el);
+  cardRedraw = () => {
+    const ppi = parseFloat(size.value);
+    const pxmm = ppi / 25.4;
+    let w = CARD_MM.w * pxmm, h = CARD_MM.h * pxmm;
+    if (w > el.clientWidth - 12) [w, h] = [h, w]; // passt quer nicht: hochkant
+    Object.assign($('#card-frame', el).style, { width: `${w}px`, height: `${h}px`, borderRadius: `${CARD_MM.r * pxmm}px` });
+    $('#card-zoom-warn', el).hidden = !(window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.02);
+  };
+  size.addEventListener('input', cardRedraw);
+  el.addEventListener('click', (e) => {
+    const step = parseFloat(e.target.closest('[data-card]')?.dataset.card);
+    if (step) { size.value = Math.min(+size.max, Math.max(+size.min, parseFloat(size.value) + step)); cardRedraw(); return; }
+    const done = e.target.closest('[data-done]')?.dataset.done;
+    if (done === undefined) return;
+    if (done === '1') onDone(parseFloat(size.value));
+    cardRedraw = null;
+    el.remove();
+  });
+  cardRedraw();
 }
 
 // ---------- Person: Start, Bedingungen, Verlauf ----------
@@ -326,7 +419,9 @@ const STATUS = { camera: t('starting_camera'), model: t('loading_face_detection'
 function startMeasurement() {
   // Vollbild und Display-Sperre müssen direkt im Tipp angefragt werden
   const el = document.documentElement;
-  (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())?.catch?.(() => {});
+  const fs = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
+  // Android: im Vollbild auf Querformat festlegen (iOS kennt das nicht, Fehler werden ignoriert)
+  Promise.resolve(fs).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
   navigator.wakeLock?.request('screen').then((l) => { wakeLock = l; }).catch(() => {});
   const c = condOf(personById(state.personId));
   setView('check', `
@@ -356,7 +451,7 @@ async function startCheck() {
     if (s) {
       s.hidden = false;
       s.textContent = err.name === 'NotAllowedError'
-        ? t('no_camera_access_please_allow_the')
+        ? t(IS_IOS ? 'no_camera_access_please_allow_the' : IS_ANDROID ? 'no_camera_access_android' : 'no_camera_access_other')
         : t('camera_start_failed', { error: err.message || err.name });
     }
     return;
@@ -414,6 +509,7 @@ let wakeLock = null;
 function showFs() { $('#fs').hidden = false; stage.resize(); updateRotateHint(); }
 function exitFullscreen() {
   $('#fs').hidden = true; $('#hud').hidden = true; $('#overlay').hidden = true;
+  try { screen.orientation?.unlock?.(); } catch { /* nicht unterstützt */ }
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   else if (document.webkitFullscreenElement) document.webkitExitFullscreen?.();
   wakeLock?.release().catch(() => {}); wakeLock = null;
@@ -749,7 +845,8 @@ function showResult(m, fresh = false) {
       <div class="panel-head" style="margin-top:12px"><h3>${t('eye_movement_in_one_round')}</h3>
         <select id="trace-block" aria-label="${t('round')}">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${b.speed} °/s · ${t('round')} ${b.rep}</option>`).join('')}</select></div>
       <div class="chart-box"><canvas id="trace-canvas"></canvas></div>
-    </details>`);
+    </details>
+    <p class="hint">${t('not_a_medical_device')}</p>`);
 
   const drawTrace = () => {
     const b = m.blocks[+$('#trace-block').value];

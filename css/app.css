@@ -247,3 +247,30 @@ tr.clickable:hover td { background: var(--surface-2); }
 /* Schrift von rechts nach links (z. B. Hebräisch): Zahlen und Messwerte bleiben links-nach-rechts */
 [dir="rtl"] .num, [dir="rtl"] .mono, [dir="rtl"] .rtile .v, [dir="rtl"] .kv dd, [dir="rtl"] .big-count { direction: ltr; unicode-bidi: isolate; }
 [dir="rtl"] .rtile .v, [dir="rtl"] .sub.mono, [dir="rtl"] .kv dd { text-align: right; }
+
+/* Karten-Abgleich: Vollbild, Rahmen in Scheckkartengröße am Rand, markierte Ecke oben am Zeilenanfang */
+.card-field { display: flex; flex-direction: column; gap: 10px; }
+.card-field > p { margin: 0; }
+.card-field .row .hint { margin: 0; }
+.cardmatch {
+  position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow: auto;
+  display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 16px;
+  padding: max(8px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) 8px max(6px, env(safe-area-inset-left));
+}
+.card-frame {
+  position: relative; flex: none; box-sizing: border-box; display: grid; place-items: center;
+  border: 2px solid var(--accent); background: var(--surface);
+}
+.card-frame::before {
+  content: ""; position: absolute; top: -8px; inset-inline-start: -8px; width: 30px; height: 30px;
+  border-top: 5px solid var(--accent); border-inline-start: 5px solid var(--accent); border-start-start-radius: 12px;
+}
+.card-label { color: var(--ink-2); font-size: 13px; }
+.cardmatch-side { flex: 1 1 130px; min-width: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.cardmatch-side .row .btn { flex: 1 1 auto; justify-content: center; }
+/* Kleines Handy hochkant: Anleitung stand schon auf der Seite davor, hier nur die Bedienelemente */
+@media (orientation: portrait) and (max-width: 500px) { .cardmatch-side > p:first-child { display: none; } }
+.cardmatch-side p, .cardmatch-side .hint { margin: 0; }
+.card-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 360px; }
+.card-controls .btn { min-height: 44px; justify-content: center; font-size: 22px; }
+.card-controls input[type="range"] { order: 2; grid-column: 1 / -1; width: 100%; min-height: 32px; padding: 0; accent-color: var(--accent); background: none; border: 0; }

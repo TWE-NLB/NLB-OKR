@@ -2,7 +2,7 @@
 
 ## Projekt
 
-Demo-Web-App für einen OKR/OKN-Schnellcheck (optokinetischer Reflex) auf iPad/iPhone, Augen-Tracking über die Frontkamera.
+Demo-Web-App für einen OKR/OKN-Schnellcheck (optokinetischer Reflex) auf iPad, iPhone und Android, Augen-Tracking über die Frontkamera. Positionierung: Wellness-Anwendung, kein Medizinprodukt. App-Texte nur nach dem Claims-Leitfaden im Marketing-Repo (`grundlagen/claims-leitfaden.md`) formulieren.
 Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://twe-nlb.github.io/NLB-OKR/
 
 **Das Repo ist öffentlich.** Alles, was hier committet wird, ist für alle sichtbar und wird von automatischen Programmen kopiert. Ein einmal gepushtes Geheimnis gilt als verraten, auch wenn es später gelöscht wird.
@@ -18,11 +18,11 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 | Pfad | Inhalt |
 |------|--------|
 | `index.html`, `css/app.css` | Seite und Layout (auch Rechts-nach-links für Hebräisch) |
-| `js/app.js` | Ablauf: Personen, Setup-Check, Kalibrierung, Messung, Ergebnis, Export |
+| `js/app.js` | Ablauf: Geräte-Einrichtung (iOS-Gerätetypen, Karten-Abgleich für Android), Personen, Setup-Check, Kalibrierung, Messung, Ergebnis, Export |
 | `js/analysis.js` | Auswertung ohne DOM (Gain, Asymmetrie, Kalibrierung); Tests in `test/` |
 | `js/stage.js`, `js/charts.js`, `js/tracker.js`, `js/store.js` | Muster/Figuren, Diagramme, Gesichtserkennung, Speicher |
 | `js/i18n.js`, `lang/*.json` | Sprachen; alle Texte stehen in `lang/<code>.json`, nie im Code |
-| `docs/` | Dokumentation (deutsches .docx, englisches PDF), Quellen aus PubMed |
+| `docs/` | Öffentliche Anleitung in Wellness-Sprache: `guide_de/en/he.md` (Quelle) und `.docx`. Kein Bezug zu Krankheiten, Hirnbereichen oder Studien; der wissenschaftliche Hintergrund liegt nur intern im Marketing-Repo (`wissenschaft/`) |
 | `tools/`, `.githooks/` | Geheimnis-Wächter (siehe unten) |
 
 ## Veröffentlichen
@@ -30,6 +30,10 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 1. Tests: `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js`
 2. Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (sonst lädt Safari alte Dateien gemischt). Die Sprachdateien übernehmen sie automatisch.
 3. Neue Texte in **allen** Dateien unter `lang/` ergänzen. Die feste Anweisung (`instruction`) nie ohne Rückfrage ändern.
+4. Ändert sich die Bedienung, die Anleitung `docs/guide_*.md` in allen Sprachen anpassen und die `.docx` neu erzeugen:
+   `python3 tools/md2docx.py docs/guide_de.md docs/guide_de.docx --lang de-DE --footer "OKR-Schnellcheck · Anleitung · Seite"`
+   (en: `--lang en-GB --footer "OKR Quick Check · Guide · Page"`, he: `--lang he-IL --rtl --footer "בדיקת OKR מהירה · מדריך · עמוד"`).
+   Im Hebräischen Einheiten, Adressen und Formeln mit unsichtbaren Richtungszeichen (U+200E) einfassen, sonst stehen sie verdreht.
 
 ## Geheimnis-Wächter (verbindlich)
 
