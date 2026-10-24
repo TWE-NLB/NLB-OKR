@@ -1,9 +1,9 @@
 // Anzeige der Augenspur: vergrößerte, aus den gespeicherten Gesichtspunkten nachgezeichnete Augen (gespiegelt wie in
 // einem Spiegel), Striche für Mitgleiten und Rücksprung, Kurve mit Zeitstrich, Werte in Grad und mm.
 // Studien: Abspielen mit Zeitlupe und Wahl des Durchgangs. Freemium: Standbild eines Durchgangs.
-import { decodeFrames, eyeGeometry, mmSeries, phaseLabels, trialStats, median } from './eyetrace.js?v=2.4.0';
-import { DIRS } from './analysis.js?v=2.4.0';
-import { t, ltr, LOCALE } from './i18n.js?v=2.4.0';
+import { decodeFrames, eyeGeometry, mmSeries, phaseLabels, trialStats, smoothSlow, median, IRIS_MM } from './eyetrace.js?v=2.4.1';
+import { DIRS } from './analysis.js?v=2.4.1';
+import { t, ltr, LOCALE } from './i18n.js?v=2.4.1';
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const fmt = (v, d) => (Number.isFinite(v) ? v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
@@ -40,7 +40,8 @@ function trialData(m, prep, b) {
   const mmAxis = dir.axis === 'x' ? mm.x : mm.y;
   const valid = idx.map((i, k) => rows[i][F.valid] === 1 && Number.isFinite(deg[k]));
   const labels = phaseLabels(time, deg.map((v) => v * dir.sign), valid, b.speedEff || b.speed);
-  const stats = trialStats(time, deg.map((v) => v * dir.sign), mmAxis.map((v) => v * dir.sign), labels);
+  const pMm = mmAxis.map((v) => v * dir.sign);
+  const stats = trialStats(time, deg.map((v) => v * dir.sign), pMm, labels);
   const geoms = frames.map((f) => (f ? eyeGeometry(f, w, h) : null));
   if (geoms.filter(Boolean).length < 10) return null;
   const eyeW = median(geoms.filter(Boolean).flatMap((g) => g.eyes.map((e) => Math.hypot(e.outer[0] - e.inner[0], e.outer[1] - e.inner[1]))));
@@ -52,11 +53,19 @@ function trialData(m, prep, b) {
     const sxx = pairs.reduce((s, p) => s + (p[0] - ma) ** 2, 0), sxy = pairs.reduce((s, p) => s + (p[0] - ma) * (p[1] - mc), 0);
     if (sxx > 0) { slope = sxy / sxx; icpt = mc - slope * ma; }
   }
-  // Striche vergrößern, damit die kleine Bewegung (Bruchteile eines mm) im Auge sichtbar wird
-  const hs = geoms.filter(Boolean).map((g) => (g.eyes[0].h + g.eyes[1].h) / 2).sort((a, c) => a - c);
-  const range = hs.length ? hs[Math.floor(hs.length * 0.95)] - hs[Math.floor(hs.length * 0.05)] : NaN;
-  const zoom = range > 0 ? Math.max(1, Math.min(8, Math.round((0.8 * mm.irisPx) / range))) : 1;
-  return { b, dir, time, deg, mmAxis, labels, stats, geoms, eyeW, mmPerPx: mm.mmPerPx, dur: time[time.length - 1], slope, icpt, zoom };
+  // Spur: Mittel beider Augen in Kamera-Bildpunkten entlang der Laufachse, Mitgleiten geglättet
+  const axSign = dir.axis === 'x' ? m.eyeTrace.signX : m.eyeTrace.signY;
+  const trail = smoothSlow(time, pMm, labels).map((v) => (v * dir.sign * axSign) / mm.mmPerPx);
+  // Striche vergrößern, damit die kleine Bewegung (Bruchteile eines mm) sichtbar wird:
+  // ein typischer Rücksprung erscheint etwa so breit wie 0,8 Irisdurchmesser
+  let zoom = 1;
+  if (stats.fastMm > 0) zoom = Math.max(1, Math.min(25, Math.round((0.8 * IRIS_MM) / stats.fastMm)));
+  else {
+    const hs = trail.filter(Number.isFinite).sort((a, c) => a - c);
+    const range = hs.length ? hs[Math.floor(hs.length * 0.95)] - hs[Math.floor(hs.length * 0.05)] : NaN;
+    if (range > 0) zoom = Math.max(1, Math.min(8, Math.round((0.8 * mm.irisPx) / range)));
+  }
+  return { b, dir, time, deg, mmAxis, labels, stats, geoms, eyeW, trail, mmPerPx: mm.mmPerPx, dur: time[time.length - 1], slope, icpt, zoom };
 }
 
 // Index des Bildes zum Zeitpunkt tt (letztes Bild mit Zeit ≤ tt)
@@ -89,8 +98,9 @@ function smoothClosed(ctx, pts) {
   ctx.closePath();
 }
 
-// Ein Auge in Augen-Koordinaten zeichnen: Mitte zwischen den Augenwinkeln bei (cx, cy), gespiegelt
-function drawEye(ctx, g, e, cx, cy, s, trail, colors) {
+// Ein Auge in Augen-Koordinaten zeichnen: Mitte zwischen den Augenwinkeln bei (cx, cy), gespiegelt.
+// Gibt die Lage der Iris-Mitte auf dem Bildschirm zurück.
+function drawEye(ctx, g, e, cx, cy, s) {
   const L = (p) => { const d = sub(p, e.center); return [cx - dot(d, g.ex) * s, cy + dot(d, g.ny) * s]; };
   const outline = [e.outer, ...e.up, e.inner, ...e.lo.slice().reverse()].map(L);
   smoothClosed(ctx, outline);
@@ -106,21 +116,7 @@ function drawEye(ctx, g, e, cx, cy, s, trail, colors) {
   ctx.restore();
   smoothClosed(ctx, outline);
   ctx.lineWidth = 2; ctx.strokeStyle = '#3b464d'; ctx.stroke();
-  // Striche: Weg der Iris-Mitte (Mitgleiten / Rücksprung), ältere Abschnitte blasser
-  if (trail && trail.length > 1) {
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    for (let k = 1; k < trail.length; k++) {
-      const a = trail[k - 1], b = trail[k];
-      if (!a || !b) continue;
-      const pa = L(a.p), pb = L(b.p);
-      ctx.globalAlpha = 0.25 + 0.75 * b.age;
-      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
-      ctx.strokeStyle = b.label === 'fast' ? colors.fast : colors.slow; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-  }
+  return ic;
 }
 
 export function createEyeTrace(root, m, { interactive, blocks }) {
@@ -137,8 +133,9 @@ export function createEyeTrace(root, m, { interactive, blocks }) {
   root.innerHTML = `
     <div class="panel-head"><h3>${t('eye_trace_title')}</h3>
       ${interactive ? `<select class="et-trial" aria-label="${t('round')}">${usable.map((b) => `<option value="${m.blocks.indexOf(b)}" ${b === start ? 'selected' : ''}>${DIRS[b.dir].arrow} ${ltr(`${b.speed} °/s`)} · ${t('round')} ${b.rep}</option>`).join('')}</select>` : ''}</div>
-    <div class="et-legend"><span><i style="background:${colors.slow}"></i>${t('eye_trace_slow')}</span><span><i style="background:${colors.fast}"></i>${t('eye_trace_fast')}</span></div>
+    <div class="et-legend"><span><i style="background:${colors.slow}"></i>${t('eye_trace_slow')}</span><span><i style="background:${colors.fast}"></i>${t('eye_trace_fast')}</span><span>${t('eye_trace_fast_len')}</span></div>
     <canvas class="et-eye"></canvas>
+    <p class="et-width"></p>
     <canvas class="et-chart"></canvas>
     ${interactive ? `<div class="et-controls">
       <button type="button" class="btn et-play">${t('eye_trace_play')}</button>
@@ -151,6 +148,7 @@ export function createEyeTrace(root, m, { interactive, blocks }) {
     <p class="hint">${interactive ? '' : `${t('eye_trace_free_note')} `}${t('eye_trace_note')}</p>`;
 
   const cvEye = root.querySelector('.et-eye'), cvChart = root.querySelector('.et-chart');
+  const cvTrail = document.createElement('canvas'); // Zwischenebene für die Spur (Ausblenden älterer Abschnitte)
   let td = null, tNow = 0, playing = false, speed = 0.5, last = 0, raf = 0;
 
   function load(b) {
@@ -158,10 +156,13 @@ export function createEyeTrace(root, m, { interactive, blocks }) {
     // Standbild: Zeitpunkt in der Mitte des Durchgangs während des Mitgleitens
     tNow = interactive ? 0 : td.time[nearestSlow(td, td.dur / 2)];
     const st = td.stats;
+    // Zeichen und Einheiten in den Zahlenblock, damit sie auch im Hebräischen auf der richtigen Seite stehen
+    root.querySelector('.et-width').textContent = st.nFast >= 3 && Number.isFinite(st.fastMm) ? t('eye_trace_width', {
+      mm: ltr(fmt(st.fastMm, 2)), deg: ltr(`${fmt(st.fastDeg, 1)}°`), n: ltr(String(st.nFast)), ci: ltr(`± ${fmt(st.fastCiMm, 2)}`),
+    }) : '';
     root.querySelector('.et-summary').textContent = t('eye_trace_summary', {
-      sDeg: ltr(fmt(st.slowDeg, 1)), sMm: ltr(fmt(st.slowMm, 2)),
-      fDeg: ltr(fmt(st.fastDeg, 1)), fMm: ltr(fmt(st.fastMm, 2)),
-      nDeg: ltr(fmt(st.noiseDeg, 2)), nMm: ltr(fmt(st.noiseMm, 2)),
+      sDeg: ltr(`${fmt(st.slowDeg, 1)} °/s`), sMm: ltr(fmt(st.slowMm, 2)),
+      nDeg: ltr(`± ${fmt(st.noiseDeg, 2)}°`), nMm: ltr(`± ${fmt(st.noiseMm, 2)}`),
     });
     draw();
   }
@@ -197,36 +198,72 @@ export function createEyeTrace(root, m, { interactive, blocks }) {
     ctx.fillStyle = css('--surface-2') || '#f6f8f8'; ctx.fillRect(0, 0, w, h);
     const slotW = w / 2;
     const s = Math.min((slotW * 0.72) / td.eyeW, (h * 0.5) / (td.eyeW * 0.6));
-    // Spur der letzten 1,2 s: Bewegung in Laufrichtung vergrößert (td.zoom), ältere Punkte wandern quer dazu weg
-    // wie bei einem Schreiber; so wird Mitgleiten zum schrägen Strich und der Rücksprung zum kurzen Gegenstrich.
-    const WINDOW = 1.2;
     const horiz = td.dir.axis === 'x';
-    const trailFor = (e) => {
-      const cur = g.eyes[e];
-      const rel0 = sub(cur.iris, cur.center);
-      const a0 = dot(rel0, g.ex), b0 = dot(rel0, g.ny);
-      const drift = cur.irisPx * 0.55; // Kamera-Bildpunkte pro Sekunde Alter
-      const out = [];
-      for (let k = 0; k <= i; k++) {
-        const age = td.time[i] - td.time[k];
-        if (age > WINDOW) continue;
-        const gk = td.geoms[k];
-        if (!gk) { out.push(null); continue; }
-        const rel = sub(gk.eyes[e].iris, gk.eyes[e].center);
-        let da = dot(rel, gk.ex) - a0, db = dot(rel, gk.ny) - b0;
-        if (horiz) { da *= td.zoom; db = age * drift; } else { db *= td.zoom; da = age * drift; }
-        out.push({
-          p: [cur.iris[0] + da * g.ex[0] + db * g.ny[0], cur.iris[1] + da * g.ex[1] + db * g.ny[1]],
-          label: td.labels[k],
-          age: 1 - age / WINDOW,
-        });
-      }
-      return out;
-    };
+    const cy = h * (horiz ? 0.4 : 0.5); // waagerecht: Augen etwas über der Mitte, darunter Platz für die Spur
     // gespiegelt: rechtes Auge der Person (Augen-Index 0) erscheint rechts
-    const cy = h * 0.4; // Augen etwas über der Mitte, darunter Platz für die Spur
-    drawEye(ctx, g, g.eyes[1], slotW * 0.5, cy, s, trailFor(1), colors);
-    drawEye(ctx, g, g.eyes[0], slotW * 1.5, cy, s, trailFor(0), colors);
+    const origins = [drawEye(ctx, g, g.eyes[0], slotW * 1.5, cy, s), drawEye(ctx, g, g.eyes[1], slotW * 0.5, cy, s)];
+    // Spur der letzten 1,2 s wie bei einem Schreiber: Bewegung entlang der Laufachse vergrößert (td.zoom), ältere Bilder
+    // wandern quer dazu weg (waagerechter Reiz: nach unten, senkrechter: zur Seite). So wird Mitgleiten zum schrägen
+    // Strich und der Rücksprung zum Gegenstrich; dessen Länge ist die Breite der Reflexbewegung.
+    const WINDOW = 1.2, GAP = 0.25;
+    const len = horiz ? h - cy - 14 : slotW * 0.5 - 10;
+    let r = i; while (r > 0 && !Number.isFinite(td.trail[r])) r--;
+    const isFast = (k) => td.labels[k] === 'fast';
+    const lone = (k) => isFast(k) && !isFast(k - 1) && !isFast(k + 1);
+    const pts = [], byK = new Map();
+    let prev = -1;
+    for (let k = 0; k <= i; k++) {
+      const age = td.time[i] - td.time[k];
+      if (age > WINDOW || !Number.isFinite(td.trail[k])) continue;
+      if (prev >= 0 && td.time[k] - td.time[prev] > GAP) pts.push(null); // größere Lücke nicht überbrücken
+      const along = (td.trail[k] - td.trail[r]) * td.zoom * s, across = (age / WINDOW) * len;
+      const q = { age, d: horiz ? [-along, across] : [-across, along],
+        fast: prev >= 0 && ((isFast(prev) && isFast(k)) || lone(k) || lone(prev)) };
+      pts.push(q); byK.set(k, q); prev = k;
+    }
+    const at = (O, q) => [O[0] + q.d[0], O[1] + q.d[1]];
+    const dpr = window.devicePixelRatio || 1;
+    if (cvTrail.width !== cvEye.width || cvTrail.height !== cvEye.height) { cvTrail.width = cvEye.width; cvTrail.height = cvEye.height; }
+    const lc = cvTrail.getContext('2d');
+    for (const O of origins) {
+      lc.setTransform(dpr, 0, 0, dpr, 0, 0); lc.clearRect(0, 0, w, h);
+      lc.lineCap = 'round'; lc.lineJoin = 'round';
+      // erst der helle Rand für die ganze Spur, dann die farbigen Abschnitte als zusammenhängende Linien
+      lc.strokeStyle = 'rgba(255,255,255,.9)'; lc.lineWidth = 7;
+      lc.beginPath();
+      pts.forEach((q, n) => { if (!q) return; const p = at(O, q); if (!pts[n - 1]) lc.moveTo(p[0], p[1]); else lc.lineTo(p[0], p[1]); });
+      lc.stroke();
+      lc.lineWidth = 3.5;
+      for (let n = 1; n < pts.length;) {
+        if (!pts[n] || !pts[n - 1]) { n++; continue; }
+        const fast = pts[n].fast, p0 = at(O, pts[n - 1]);
+        lc.beginPath(); lc.moveTo(p0[0], p0[1]);
+        while (n < pts.length && pts[n] && pts[n].fast === fast) { const p = at(O, pts[n]); lc.lineTo(p[0], p[1]); n++; }
+        lc.strokeStyle = fast ? colors.fast : colors.slow; lc.stroke();
+      }
+      // ältere Abschnitte blasser
+      const end = horiz ? [O[0], O[1] + len] : [O[0] - len, O[1]];
+      const fade = lc.createLinearGradient(O[0], O[1], end[0], end[1]);
+      fade.addColorStop(0, 'rgba(0,0,0,1)'); fade.addColorStop(1, 'rgba(0,0,0,.3)');
+      lc.globalCompositeOperation = 'destination-in'; lc.fillStyle = fade; lc.fillRect(0, 0, w, h);
+      lc.globalCompositeOperation = 'source-over';
+      ctx.drawImage(cvTrail, 0, 0, w, h);
+    }
+    // Breite jedes abgeschlossenen Rücksprungs in mm, neben dem Anfang des Gegenstrichs (am rechts gezeigten Auge)
+    ctx.font = '600 13px system-ui, sans-serif'; ctx.direction = 'ltr'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.5;
+    for (const j of td.stats.jumps) {
+      const a = byK.get(j.from), b = byK.get(j.to);
+      if (!a || !b || j.to > i || !(j.mm > 0)) continue;
+      const pa = at(origins[0], a), pb = at(origins[0], b);
+      let x = pa[0], y = pa[1];
+      if (horiz) { const right = pa[0] >= pb[0]; ctx.textAlign = right ? 'left' : 'right'; ctx.textBaseline = 'middle'; x += right ? 8 : -8; }
+      else { const down = pa[1] >= pb[1]; ctx.textAlign = 'center'; ctx.textBaseline = down ? 'top' : 'bottom'; y += down ? 7 : -7; }
+      const txt = `${fmt(j.mm, 2)} mm`;
+      ctx.globalAlpha = 0.4 + 0.6 * (1 - a.age / WINDOW);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText(txt, x, y);
+      ctx.fillStyle = '#b4471f'; ctx.fillText(txt, x, y);
+    }
+    ctx.globalAlpha = 1;
     // Maßstab 1 mm
     const mmPx = Number.isFinite(td.mmPerPx) ? (1 / td.mmPerPx) * s : NaN;
     ctx.fillStyle = colors.ink2; ctx.strokeStyle = colors.ink2; ctx.lineWidth = 2;

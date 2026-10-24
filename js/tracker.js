@@ -1,5 +1,5 @@
 // Kamera, Gesichts-/Iris-Erkennung (MediaPipe Face Landmarker) und Bewegungssensor.
-import { EYE_LANDMARKS, N_VALUES } from './eyetrace.js?v=2.4.0';
+import { EYE_LANDMARKS, N_VALUES } from './eyetrace.js?v=2.4.1';
 
 const MP_VERSION = '0.10.14';
 const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;

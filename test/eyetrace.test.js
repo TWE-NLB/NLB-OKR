@@ -1,5 +1,5 @@
 // Ausführen: /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/eyetrace.test.js
-import { encodeFrames, decodeFrames, mmSeries, noiseSd, phaseLabels, trialStats, eyeGeometry, N_VALUES, PER_EYE, IRIS_MM } from '../js/eyetrace.js';
+import { encodeFrames, decodeFrames, mmSeries, noiseSd, phaseLabels, trialStats, eyeGeometry, smoothSlow, jumps, N_VALUES, PER_EYE, IRIS_MM } from '../js/eyetrace.js';
 
 let seed = 11;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
@@ -67,6 +67,24 @@ check('Rücksprung ≈ 0,75 mm', Math.abs(st.fastMm - 0.75) < 0.12, st.fastMm.to
 // Gleichverteiltes Rauschen ±0,1° hat SD 0,058°; ±0,02 mm hat SD 0,012 mm
 check('Messschwankung Grad ≈ 0,06', Math.abs(st.noiseDeg - 0.058) < 0.03, st.noiseDeg.toFixed(3));
 check('Messschwankung mm ≈ 0,012', Math.abs(st.noiseMm - 0.0115) < 0.006, st.noiseMm.toFixed(4));
+check('Breite je Rücksprung in mm vorhanden', st.jumps.length === st.nFast && st.jumps.every((j) => Math.abs(j.mm - 0.75) < 0.1),
+  st.jumps.map((j) => j.mm.toFixed(2)).join(' '));
+check('Schwankung des Mittelwerts klein', st.fastCiMm > 0 && st.fastCiMm < 0.03, st.fastCiMm.toFixed(4));
+
+// 4) Glätten: gleichmäßiges Gleiten bleibt gleich, Zittern wird kleiner, Rücksprünge bleiben scharf
+const sm = smoothSlow(t, pDeg, labels);
+const clean = []; pos = 0; next = 0.5;
+for (let i = 0; i < t.length; i++) { if (t[i] >= next) { pos -= 4; next += 0.5; } pos += 8 / 30; clean.push(pos); }
+const errRaw = [], errSm = [];
+labels.forEach((l, i) => { if (l === 'slow') { errRaw.push(Math.abs(pDeg[i] - clean[i])); errSm.push(Math.abs(sm[i] - clean[i])); } });
+const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+check('Glätten halbiert das Zittern', mean(errSm) < 0.6 * mean(errRaw), `${mean(errRaw).toFixed(3)} → ${mean(errSm).toFixed(3)}`);
+check('Rücksprung-Bilder bleiben unverändert', labels.every((l, i) => l !== 'fast' || sm[i] === pDeg[i]));
+const lin = t.map((x) => 2 + 5 * x), linSm = smoothSlow(t, lin, t.map(() => 'slow'));
+check('Gerade bleibt Gerade (auch am Rand)', linSm.every((v, i) => Math.abs(v - lin[i]) < 1e-9));
+const jj = jumps([0, 1, 2, 3, -1, 0, 1], [null, 'slow', 'slow', 'fast', 'fast', 'slow', 'slow']);
+check('Rücksprung: Anfang, Ende, Breite', jj.length === 1 && jj[0].from === 3 && jj[0].to === 4 && jj[0].amp === 4, JSON.stringify(jj));
+
 check('Rauschen ohne Werte = NaN', Number.isNaN(noiseSd([1, 2])));
 check('IRIS_MM 11,7', IRIS_MM === 11.7);
 

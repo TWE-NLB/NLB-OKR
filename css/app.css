@@ -291,3 +291,5 @@ tr.clickable:hover td { background: var(--surface-2); }
 .et-controls .et-seek { flex: 1; min-width: 140px; min-height: 0; padding: 0; background: none; border: 0; accent-color: var(--accent); }
 .et-play { min-width: 110px; justify-content: center; }
 .et-now { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.et-width { font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.et-width:empty { display: none; }

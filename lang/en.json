@@ -243,9 +243,11 @@
   "eye_trace_time": "Point in time",
   "eye_trace_stimulus": "Stimulus",
   "eye_trace_now": "{time} s · {arrow} position {pos} · {phase}",
-  "eye_trace_summary": "Gliding {sDeg} °/s ({sMm} mm/s) · jump back on average {fDeg}° ({fMm} mm) · measurement fluctuation per frame ± {nDeg}° (± {nMm} mm)",
-  "eye_trace_note": "The eyes are redrawn from the stored facial points (no camera image) and shown mirrored, as in a mirror. Degrees come from the calibration; mm are estimated from the iris diameter (about 11.7 mm).",
+  "eye_trace_summary": "Gliding {sDeg} ({sMm} mm/s) · measurement fluctuation per frame {nDeg} ({nMm} mm)",
+  "eye_trace_note": "The eyes are redrawn from the stored facial points (no camera image) and shown mirrored, as in a mirror. Degrees come from the calibration; mm are estimated from the iris diameter (about 11.7 mm). The strokes show the average of both eyes, with gliding slightly smoothed.",
   "eye_trace_free_note": "Still image of one trial as a taster. Playback in slow motion and all trials are available in the “Study cases” version.",
   "eye_trace_too_few": "Too few detected frames for the eye trace.",
-  "eye_trace_zoom": "Strokes magnified {n}×"
+  "eye_trace_zoom": "Strokes magnified {n}×",
+  "eye_trace_fast_len": "Length of the counter-stroke = width of the reflex movement",
+  "eye_trace_width": "Width of the reflex movement on average: {mm} mm · {deg} (from {n} jumps back, {ci} mm)"
 }

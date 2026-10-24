@@ -174,6 +174,52 @@ export function phaseLabels(t, p, valid, speed) {
   });
 }
 
+// Mitgleiten glätten: je Bild eine Gerade durch die Nachbarbilder desselben Mitgleit-Abschnitts (± half Bilder).
+// Gleichmäßiges Gleiten bleibt unverändert, das Zittern der Gesichtspunkte wird kleiner; Rücksprünge bleiben ungeglättet.
+export function smoothSlow(t, p, labels, half = 4) {
+  return p.map((v, i) => {
+    if (labels[i] !== 'slow' || !Number.isFinite(v)) return v;
+    let a = i, b = i;
+    while (a > 0 && i - a < half && labels[a - 1] === 'slow') a--;
+    while (b < p.length - 1 && b - i < half && labels[b + 1] === 'slow') b++;
+    let n = 0, mt = 0, mp = 0;
+    for (let k = a; k <= b; k++) if (Number.isFinite(p[k])) { n++; mt += t[k]; mp += p[k]; }
+    if (n < 3) return v;
+    mt /= n; mp /= n;
+    let sxx = 0, sxy = 0;
+    for (let k = a; k <= b; k++) if (Number.isFinite(p[k])) { sxx += (t[k] - mt) ** 2; sxy += (t[k] - mt) * (p[k] - mp); }
+    return sxx > 0 ? mp + (sxy / sxx) * (t[i] - mt) : mp;
+  });
+}
+
+// Rücksprünge einzeln: je Lauf aus „fast“ der größte Abfall gegen die Laufrichtung (p positiv in Laufrichtung).
+// from: Bild am Anfang des Gegenstrichs (weitester Punkt), to: Bild am Ende, amp: Breite
+export function jumps(p, labels) {
+  const res = [];
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] !== 'fast') continue;
+    let j = i;
+    while (j + 1 < labels.length && labels[j + 1] === 'fast') j++;
+    let peak = -Infinity, pk = -1, amp = 0, from = -1, to = -1;
+    for (let k = Math.max(0, i - 1); k <= Math.min(p.length - 1, j + 1); k++) {
+      if (!Number.isFinite(p[k])) continue;
+      if (p[k] > peak) { peak = p[k]; pk = k; }
+      if (peak - p[k] > amp) { amp = peak - p[k]; from = pk; to = k; }
+    }
+    if (amp > 0) res.push({ from, to, amp });
+    i = j;
+  }
+  return res;
+}
+
+// 95-%-Vertrauensbereich des Medians (robust über die mittlere absolute Abweichung)
+function medianCi(a) {
+  const v = a.filter(Number.isFinite);
+  if (v.length < 3) return NaN;
+  const m = median(v);
+  return (1.96 * 1.2533 * 1.4826 * median(v.map((x) => Math.abs(x - m)))) / Math.sqrt(v.length);
+}
+
 // Kennwerte eines Durchgangs in Grad und mm (pDeg/pMm positiv in Laufrichtung)
 export function trialStats(t, pDeg, pMm, labels) {
   const vel = (p) => {
@@ -185,30 +231,15 @@ export function trialStats(t, pDeg, pMm, labels) {
     }
     return out.length >= 10 ? median(out) : NaN;
   };
-  // Rücksprünge: Läufe aus „fast“, Amplitude = größter Abfall gegen die Laufrichtung
-  const amps = (p) => {
-    const res = [];
-    for (let i = 0; i < labels.length; i++) {
-      if (labels[i] !== 'fast') continue;
-      let j = i;
-      while (j + 1 < labels.length && labels[j + 1] === 'fast') j++;
-      let peak = -Infinity, amp = 0;
-      for (let k = Math.max(0, i - 1); k <= Math.min(p.length - 1, j + 1); k++) {
-        if (!Number.isFinite(p[k])) continue;
-        peak = Math.max(peak, p[k]);
-        amp = Math.max(amp, peak - p[k]);
-      }
-      if (amp > 0) res.push(amp);
-      i = j;
-    }
-    return res;
-  };
-  const aDeg = amps(pDeg).filter((a) => a >= 0.5);
-  const aMm = amps(pMm).filter((a) => a >= 0.1);
+  // Rücksprünge auf dem geglätteten Verlauf in Grad finden; Breite in mm zwischen denselben Bildern
+  const sMm = smoothSlow(t, pMm, labels);
+  const js = jumps(smoothSlow(t, pDeg, labels), labels).filter((j) => j.amp >= 0.5)
+    .map((j) => ({ from: j.from, to: j.to, deg: j.amp, mm: sMm[j.from] - sMm[j.to] }));
+  const wMm = js.map((j) => j.mm).filter((v) => Number.isFinite(v) && v > 0);
   return {
     slowDeg: vel(pDeg), slowMm: vel(pMm),
-    fastDeg: aDeg.length ? median(aDeg) : NaN, fastMm: aMm.length ? median(aMm) : NaN,
-    nFast: aDeg.length,
+    fastDeg: js.length ? median(js.map((j) => j.deg)) : NaN, fastMm: wMm.length ? median(wMm) : NaN,
+    fastCiMm: medianCi(wMm), nFast: js.length, jumps: js,
     noiseDeg: noiseSd(pDeg), noiseMm: noiseSd(pMm),
   };
 }

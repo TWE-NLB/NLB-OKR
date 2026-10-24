@@ -243,9 +243,11 @@
   "eye_trace_time": "Zeitpunkt",
   "eye_trace_stimulus": "Reiz",
   "eye_trace_now": "{time} s · {arrow} Position {pos} · {phase}",
-  "eye_trace_summary": "Mitgleiten {sDeg} °/s ({sMm} mm/s) · Rücksprung im Mittel {fDeg}° ({fMm} mm) · Messschwankung je Bild ± {nDeg}° (± {nMm} mm)",
-  "eye_trace_note": "Die Augen sind aus den gespeicherten Gesichtspunkten nachgezeichnet (kein Kamerabild) und gespiegelt dargestellt wie in einem Spiegel. Grad stammen aus der Kalibrierung, mm sind über den Irisdurchmesser (etwa 11,7 mm) geschätzt.",
+  "eye_trace_summary": "Mitgleiten {sDeg} ({sMm} mm/s) · Messschwankung je Bild {nDeg} ({nMm} mm)",
+  "eye_trace_note": "Die Augen sind aus den gespeicherten Gesichtspunkten nachgezeichnet (kein Kamerabild) und gespiegelt dargestellt wie in einem Spiegel. Grad stammen aus der Kalibrierung, mm sind über den Irisdurchmesser (etwa 11,7 mm) geschätzt. Die Striche zeigen das Mittel beider Augen, das Mitgleiten leicht geglättet.",
   "eye_trace_free_note": "Standbild eines Durchgangs als Vorgeschmack. Abspielen in Zeitlupe und alle Durchgänge gibt es in der Version „Studien“.",
   "eye_trace_too_few": "Zu wenige erkannte Bilder für die Augenspur.",
-  "eye_trace_zoom": "Striche {n}× vergrößert"
+  "eye_trace_zoom": "Striche {n}× vergrößert",
+  "eye_trace_fast_len": "Länge des Gegenstrichs = Breite der Reflexbewegung",
+  "eye_trace_width": "Breite der Reflexbewegung im Mittel: {mm} mm · {deg} (aus {n} Rücksprüngen, {ci} mm)"
 }

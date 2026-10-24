@@ -33,8 +33,8 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 2. Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (sonst lädt Safari alte Dateien gemischt). Die Sprachdateien übernehmen sie automatisch.
 3. Neue Texte in **allen** Dateien unter `lang/` ergänzen. Die feste Anweisung (`instruction`) nie ohne Rückfrage ändern.
 4. Ändert sich die Bedienung, die Anleitung `docs/guide_*.md` in allen Sprachen anpassen und die `.docx` neu erzeugen:
-   `python3 tools/md2docx.py docs/guide_de.md docs/guide_de.docx --lang de-DE --footer "OKR-Schnellcheck · Anleitung · Seite"`
-   (en: `--lang en-GB --footer "OKR Quick Check · Guide · Page"`, he: `--lang he-IL --rtl --footer "בדיקת OKR מהירה · מדריך · עמוד"`).
+   `python3 tools/md2docx.py docs/guide_de.md docs/guide_de.docx --lang de-DE --footer "Eye Reflex Lab · Anleitung · Seite"`
+   (en: `--lang en-GB --footer "Eye Reflex Lab · Guide · Page"`, he: `--lang he-IL --rtl --footer "Eye Reflex Lab · מדריך · עמוד"`).
    Im Hebräischen Einheiten, Adressen und Formeln mit unsichtbaren Richtungszeichen (U+200E) einfassen, sonst stehen sie verdreht.
 
 ## Geheimnis-Wächter (verbindlich)
