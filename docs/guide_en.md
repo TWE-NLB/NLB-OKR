@@ -1,6 +1,6 @@
 # Eye Reflex Lab – Guide
 
-**The optokinetic reflex experiment** · Version: 24 October 2026 · App version 2.3 · https://twe-nlb.github.io/NLB-OKR/
+**The optokinetic reflex experiment** · Version: 24 October 2026 · App version 2.4 · https://twe-nlb.github.io/NLB-OKR/
 
 > **Eye Reflex Lab is a wellness and teaching app, not a medical device.** It is not intended to detect, monitor or treat any disease and does not replace a medical examination.
 
@@ -34,6 +34,7 @@ Eye Reflex Lab makes visible how the eyes follow a moving pattern: with the devi
 | Measure and view the result | ✓ | ✓ |
 | Choose experimental conditions | ✓ (for the current session only) | ✓ (saved per participant) |
 | Save participants and measurements | – (nothing is saved) | ✓ (on this device only) |
+| Eye trace | still image of one trial | playback in slow motion, all trials, saved |
 | Compare measurement series | – | ✓ |
 | Export and import | – | ✓ |
 
@@ -112,13 +113,25 @@ Only with vertical measurement, calculated like right/left. An upward advantage 
 
 ### Details
 
-Under **Details** you find all trials with direction, speed, gain, the share of frames with detected eyes, the share with head movement and the quality, plus the eye trace as a curve.
+Under **Details** you find all trials with direction, speed, gain, the share of frames with detected eyes, the share with head movement and the quality.
 
 | Quality | Condition |
 |---|---|
 | good | at least 70 % of frames with detected eyes and at most 20 % head movement |
 | fair | at least 50 % and at most 40 % |
 | invalid | anything below; this trial does not count |
+
+### Eye trace
+
+Below the result, the app shows the **eye trace** of one trial:
+
+- **Magnified eyes**, redrawn from the facial points that the face detection delivers for each frame (eye corners, eyelid margin, iris). No camera image is shown or stored. The view is mirrored, as in a mirror: when the stimulus pattern moves right, the eyes in the view move right.
+- **Strokes:** the movement of the iris over the last second or so runs downward like the trace of a chart recorder. **Gliding** (slow phase, blue) appears as a slanted stroke, the **jump back** (fast phase, orange) as a short counter-stroke. Because the movement is only fractions of a millimetre, the strokes are magnified in the direction of motion; the factor is shown in the image.
+- **Curve:** eye position over time with a time cursor, degrees on the left, mm on the right.
+- **Values:** gliding in °/s and mm/s, average jump back in degrees and mm, and the measurement fluctuation per frame.
+- **Degrees and mm:** degrees come from the calibration. The app estimates millimetres from the iris diameter, which is about 11.7 mm in adults. Single frames vary by roughly the stated measurement fluctuation; values over many frames are more precise.
+- **Freemium:** still image of one trial as a taster. **Study cases:** playback in slow motion (¼×, ½×, 1×), time slider, choice of trial; the eye trace is saved with the measurement and can be viewed again at any time.
+- The eye trace is available for measurements from app version 2.4 on. Older measurements show a curve in degrees under **Details**.
 
 ### First measurement and comparison (Study cases)
 
@@ -136,6 +149,7 @@ A participant’s **first measurement** under given experimental conditions is t
 ## 10 Limits
 
 - The front camera delivers about 30 frames per second. The app captures the slow gliding of the eyes well, the short jumps back only roughly.
+- The mm values of the eye trace are based on an average iris diameter. It may differ slightly in individual people; for comparing the same person this does not matter.
 - The app averages both eyes. It does not show differences between the eyes.
 - The screen covers only part of the visual field. The values cannot be compared with other measuring methods.
 - The app does not compare people with each other and has no reference values.
@@ -144,7 +158,7 @@ A participant’s **first measurement** under given experimental conditions is t
 
 - Camera images never leave the device. The app sends nothing to a server and stores no video.
 - **Freemium** saves no participants and no measurements. Only settings such as language and device setup are saved.
-- **Study cases** saves participants (code or pseudonym only) and measurements **on the device**.
+- **Study cases** saves participants (code or pseudonym only) and measurements **on the device**. The eye trace adds 17 facial points per eye and frame (eye corners, eyelid margin, iris), about 1 MB per measurement, but no images.
   - **Export** opens the share menu (e.g. Files, AirDrop, cloud storage). Each measurement is saved as a JSON file (complete, can be imported again) and as a CSV file (for Excel, number format matching the language).
   - **Import** loads JSON files back, e.g. onto another device.
   - The browser may delete website data after a long period of non-use. Please export regularly.

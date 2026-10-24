@@ -29,6 +29,7 @@ PATTERNS = [
     ('Google-API-Schlüssel', re.compile(r'\bAIza[0-9A-Za-z_\-]{35}')),
     ('Slack-Token', re.compile(r'\bxox[abposr]-[A-Za-z0-9-]{10,}')),
     ('Stripe-Schlüssel', re.compile(r'\b[rs]k_live_[0-9A-Za-z]{20,}')),
+    ('Freischalt-Code (Eye Reflex Lab)', re.compile(r'\bERL-[2-9A-Z]{4}-[2-9A-Z]{4}-[2-9A-Z]{4}\b')),
     ('JSON Web Token', re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}')),
     ('Zugangsdaten in einer Adresse', re.compile(r'\b[a-z][a-z0-9+.-]*://[^\s/:@"\']+:[^\s/@"\']{4,}@')),
     ('Passwort/Schlüssel im Klartext', re.compile(

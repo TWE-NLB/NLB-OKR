@@ -1,12 +1,14 @@
 // Eye Reflex Lab: Asymmetrie rechts/links (und optional oben/unten) und Gain des optokinetischen Reflexes.
 // Zwei Versionen: Freemium (messen, nichts speichern) und Studien (Teilnehmende, Messreihen, Export/Import), siehe edition.js.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.3.0';
-import { Tracker } from './tracker.js?v=2.3.0';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.3.0';
-import * as store from './store.js?v=2.3.0';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.3.0';
-import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.3.0';
-import { isStudy, unlockInfo, tryUnlock, lapsed, PURCHASE_URL } from './edition.js?v=2.3.0';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.4.0';
+import { Tracker } from './tracker.js?v=2.4.0';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.4.0';
+import * as store from './store.js?v=2.4.0';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.4.0';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.4.0';
+import { isStudy, unlockInfo, tryUnlock, lapsed, PURCHASE_URL } from './edition.js?v=2.4.0';
+import { encodeFrames, N_VALUES } from './eyetrace.js?v=2.4.0';
+import { createEyeTrace } from './eyeview.js?v=2.4.0';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -726,7 +728,9 @@ function onRunSample(s) {
     t: s.t, block: M.i, attempt: M.attempt[M.i], phase: M.phase === 'stim' ? 1 : 0,
     valid: !!s.face && s.open >= 0.55 * state.calib.openRef, shake: faceSpeed > FACE_SPEED_LIMIT,
     fx: s.fx ?? NaN, fy: s.fy ?? NaN, scale: s.scale ?? NaN,
+    eye: s.face && s.eyeLm ? s.eyeLm : null,
   });
+  if (s.w && s.h) M.videoSize = [s.w, s.h]; // Kamerabildgröße für die Augenspur
 }
 
 // Hinweis, wenn sich der Abstand gegenüber der Kalibrierung deutlich ändert (Gesicht größer = näher)
@@ -853,6 +857,14 @@ async function finishRun() {
       rows: keep.map((x) => [r(x.t - M.t0, 3), x.block, x.attempt, x.phase, x.valid ? 1 : 0, x.shake ? 1 : 0,
         x.valid ? r(cal.ax + cal.bx * x.fx, 2) : null, x.valid && M.c.vertical ? r(cal.ay + cal.by * x.fy, 2) : null, r(x.scale, 1)]),
     },
+    // Augenspur: Gesichtspunkte der Augen je Bild der Zeilen mit phase = 1 (gleiche Reihenfolge wie raw.rows)
+    eyeTrace: {
+      version: 1,
+      video: M.videoSize || [1280, 720],
+      signX: cal.bx < 0 ? -1 : 1,
+      signY: M.c.vertical && cal.by < 0 ? -1 : 1,
+      frames: encodeFrames(keep.filter((x) => x.phase === 1).map((x) => (x.valid && x.eye?.length === N_VALUES ? x.eye : null))),
+    },
   };
   if (!free) {
     try { await store.put('measurements', m); } catch (err) { console.error(err); toast(t('saving_in_the_browser_failed_please')); }
@@ -901,6 +913,7 @@ function showResult(m, fresh = false) {
     : t('too_few_valid_rounds');
   const blocks = [...m.blocks].sort((a, b) => 'LRUD'.indexOf(a.dir) - 'LRUD'.indexOf(b.dir) || a.speed - b.speed || a.rep - b.rep);
   const pp = ` ${t('percentage_points')}`;
+  const hasTrace = !!m.eyeTrace?.frames;
 
   setView('result', `
     <div class="panel">
@@ -936,6 +949,7 @@ function showResult(m, fresh = false) {
         ${free ? '' : hintIf(changeLine(res.gain, base?.result.gain, '', 2, isBase))}
       </div>
     </div>
+    ${hasTrace ? '<div class="panel eyetrace" id="eyetrace"></div>' : ''}
     <details class="panel" id="details">
       <summary>${t('details_individual_rounds')} (${res.validBlocks}/${res.totalBlocks} ${t('valid')})</summary>
       <div class="table-wrap"><table>
@@ -945,9 +959,9 @@ function showResult(m, fresh = false) {
           <td><span class="pill ${b.quality === 'gut' ? 'good' : b.quality === 'mäßig' ? 'warn' : 'bad'}">${esc(qualityLabel(b.quality))}</span></td></tr>`).join('')}</tbody>
       </table></div>
       <p class="hint">${t('automatically_repeated_round_asymmetry_per_round')}</p>
-      <div class="panel-head" style="margin-top:12px"><h3>${t('eye_movement_in_one_round')}</h3>
+      ${hasTrace ? '' : `<div class="panel-head" style="margin-top:12px"><h3>${t('eye_movement_in_one_round')}</h3>
         <select id="trace-block" aria-label="${t('round')}">${blocks.map((b) => `<option value="${m.blocks.indexOf(b)}">${DIRS[b.dir].arrow} ${b.speed} °/s · ${t('round')} ${b.rep}</option>`).join('')}</select></div>
-      <div class="chart-box"><canvas id="trace-canvas"></canvas></div>
+      <div class="chart-box"><canvas id="trace-canvas"></canvas></div>`}
     </details>
     <p class="hint">${t('not_a_medical_device')}</p>`);
 
@@ -961,8 +975,13 @@ function showResult(m, fresh = false) {
     traceChart($('#trace-canvas'), rows.map((row) => ({ x: row[F.t] - t0, y: row[ax] })),
       DIRS[b.dir].axis === 'x' ? t('eye_horizontal_right') : t('eye_vertical_down'));
   };
-  $('#trace-block').addEventListener('change', drawTrace);
-  $('#details').addEventListener('toggle', (e) => { if (e.target.open) drawTrace(); });
+  if (hasTrace) {
+    // Augenspur: Studien mit Abspielen, Freemium als Standbild
+    createEyeTrace($('#eyetrace'), m, { interactive: !free, blocks });
+  } else {
+    $('#trace-block').addEventListener('change', drawTrace);
+    $('#details').addEventListener('toggle', (e) => { if (e.target.open) drawTrace(); });
+  }
 
   main.onclick = async (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;

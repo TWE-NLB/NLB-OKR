@@ -21,6 +21,7 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 | `js/app.js` | Ablauf: Geräte-Einrichtung (iOS-Gerätetypen, Karten-Abgleich für Android), Personen, Setup-Check, Kalibrierung, Messung, Ergebnis, Export |
 | `js/analysis.js` | Auswertung ohne DOM (Gain, Asymmetrie, Kalibrierung); Tests in `test/` |
 | `js/stage.js`, `js/charts.js`, `js/tracker.js`, `js/store.js` | Muster/Figuren, Diagramme, Gesichtserkennung, Speicher |
+| `js/eyetrace.js`, `js/eyeview.js` | Augenspur: Gesichtspunkte der Augen je Bild speichern (`eyeTrace` in der Messung, keine Bilder), Grad/mm berechnen; Anzeige mit vergrößerten Augen, Strichen und Kurve (Freemium Standbild, Studien Abspielen). In Texten „Mitgleiten“/„Rücksprung“, nie „Nystagmus“; Tests in `test/eyetrace.test.js` |
 | `js/edition.js`, `config/editions.json`, `tools/new_code.py` | Versionen Freemium (nichts speichern) und Studien (Freischaltung per Code; im Repo nur SHA-256-Prüfsummen, nie Codes im Klartext) |
 | `js/i18n.js`, `lang/*.json` | Sprachen; alle Texte stehen in `lang/<code>.json`, nie im Code |
 | `docs/` | Öffentliche Anleitung in Wellness-Sprache: `guide_de/en/he.md` (Quelle) und `.docx`. Kein Bezug zu Krankheiten, Hirnbereichen oder Studien; der wissenschaftliche Hintergrund liegt nur intern im Marketing-Repo (`wissenschaft/`) |
@@ -28,7 +29,7 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 
 ## Veröffentlichen
 
-1. Tests: `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js`
+1. Tests: `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js` und `… -m test/eyetrace.test.js`
 2. Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (sonst lädt Safari alte Dateien gemischt). Die Sprachdateien übernehmen sie automatisch.
 3. Neue Texte in **allen** Dateien unter `lang/` ergänzen. Die feste Anweisung (`instruction`) nie ohne Rückfrage ändern.
 4. Ändert sich die Bedienung, die Anleitung `docs/guide_*.md` in allen Sprachen anpassen und die `.docx` neu erzeugen:

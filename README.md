@@ -19,6 +19,7 @@ Wellness- und Lehranwendung: Sie macht sichtbar, wie die Augen einem bewegten Mu
 | Messen und Ergebnis ansehen | ✓ | ✓ |
 | Versuchsbedingungen | nur für die laufende Sitzung | je Teilnehmende gespeichert |
 | Teilnehmende und Messungen speichern, Messreihen vergleichen, Export/Import | – | ✓ |
+| Augenspur (vergrößerte Augen, Striche, Kurve, Grad und mm) | Standbild eines Durchgangs | Abspielen in Zeitlupe, alle Durchgänge, gespeichert |
 
 - **Freischaltung** der Studien-Version per Code: in der App unter „Version“ eingeben oder per Link `https://twe-nlb.github.io/NLB-OKR/?code=…` (z. B. als QR-Code auf einer Kursfolie). Die Freischaltung gilt je Gerät, optional mit Ablaufdatum.
 - **Neuer Code:** `python3 tools/new_code.py "Kursname" --bis 2027-03-31`. Das Skript zeigt den Code und den Link einmalig an und trägt nur die SHA-256-Prüfsumme in `config/editions.json` ein. Danach veröffentlichen. Code sperren: Eintrag in `config/editions.json` löschen.
@@ -51,6 +52,7 @@ Wellness- und Lehranwendung: Sie macht sichtbar, wie die Augen einem bewegten Mu
   - Schnelle Phasen (Rücksprünge) werden über eine Geschwindigkeitsschwelle erkannt.
   - Die Streifengeschwindigkeit in °/s wird über die Gesichtsgröße an den aktuellen Abstand angepasst.
 - **Kopfbewegung:** schnelle Gesichtsbewegung im Kamerabild. Betroffene Abschnitte fließen nicht in den Gain ein.
+- **Augenspur:** Je Kamerabild werden 17 Gesichtspunkte pro Auge gespeichert (Augenwinkel, Lidrand, Iris-Mitte und -Rand; keine Bilder, ca. 1 MB je Messung). Daraus zeichnet die App die Augen vergrößert nach. Position in Grad aus der Kalibrierung, in mm über den Irisdurchmesser (≈ 11,7 mm) als Maßstab; Mitgleiten und Rücksprung mit denselben Schwellen wie die Gain-Auswertung.
 - **Grenzen:**
   - Etwa 30 Bilder/s: Die schnellen Phasen werden nur grob erfasst, die langsame Phase und damit der Gain gut.
 
@@ -74,6 +76,7 @@ Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Auswertungstes
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/eyetrace.test.js
 ```
 
 Lokal starten mit `python3 -m http.server 8765`. Bei jeder Veröffentlichung die Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (die Sprachdateien übernehmen sie automatisch), sonst lädt Safari teils alte Dateien. Für die Kamera auf dem Gerät ist HTTPS nötig, also über GitHub Pages testen.

@@ -1,4 +1,5 @@
 // Kamera, Gesichts-/Iris-Erkennung (MediaPipe Face Landmarker) und Bewegungssensor.
+import { EYE_LANDMARKS, N_VALUES } from './eyetrace.js?v=2.4.0';
 
 const MP_VERSION = '0.10.14';
 const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
@@ -163,6 +164,10 @@ export class Tracker {
     const lm = res.faceLandmarks?.[0];
     if (lm && lm.length > IRIS_B) {
       Object.assign(sample, extractFeatures(lm, v.videoWidth, v.videoHeight), { face: true });
+      // Gesichtspunkte der Augen für die Augenspur (normierte Koordinaten, keine Bilder)
+      const eye = new Float32Array(N_VALUES);
+      EYE_LANDMARKS.forEach((k, i) => { eye[2 * i] = lm[k].x; eye[2 * i + 1] = lm[k].y; });
+      sample.eyeLm = eye;
       const m = res.facialTransformationMatrixes?.[0]?.data;
       sample.distCm = m ? Math.abs(m[14]) : NaN;
     }

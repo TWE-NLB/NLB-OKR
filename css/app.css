@@ -277,3 +277,17 @@ tr.clickable:hover td { background: var(--surface-2); }
 .card-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 360px; }
 .card-controls .btn { min-height: 44px; justify-content: center; font-size: 22px; }
 .card-controls input[type="range"] { order: 2; grid-column: 1 / -1; width: 100%; min-height: 32px; padding: 0; accent-color: var(--accent); background: none; border: 0; }
+
+/* Augenspur */
+.eyetrace { display: flex; flex-direction: column; gap: 10px; }
+.eyetrace > p { margin: 0; }
+.eyetrace .panel-head h3 { margin: 0; }
+.et-eye, .et-chart { display: block; width: 100%; border-radius: 8px; }
+.et-chart { background: var(--surface); }
+.et-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); }
+.et-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.et-legend i { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+.et-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.et-controls .et-seek { flex: 1; min-width: 140px; min-height: 0; padding: 0; background: none; border: 0; accent-color: var(--accent); }
+.et-play { min-width: 110px; justify-content: center; }
+.et-now { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }

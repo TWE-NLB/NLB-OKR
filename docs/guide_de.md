@@ -1,6 +1,6 @@
 # Eye Reflex Lab – Anleitung
 
-**Das Experiment zum optokinetischen Reflex** · Stand: 24. Oktober 2026 · App-Version 2.3 · https://twe-nlb.github.io/NLB-OKR/
+**Das Experiment zum optokinetischen Reflex** · Stand: 24. Oktober 2026 · App-Version 2.4 · https://twe-nlb.github.io/NLB-OKR/
 
 > **Eye Reflex Lab ist eine Wellness- und Lehranwendung, kein Medizinprodukt.** Sie dient nicht der Erkennung, Überwachung oder Behandlung von Krankheiten und ersetzt keine ärztliche Untersuchung.
 
@@ -34,6 +34,7 @@ Eye Reflex Lab macht sichtbar, wie die Augen einem bewegten Muster folgen: mit d
 | Messen und Ergebnis ansehen | ✓ | ✓ |
 | Versuchsbedingungen wählen | ✓ (nur für die laufende Sitzung) | ✓ (je Teilnehmende gespeichert) |
 | Teilnehmende und Messungen speichern | – (nichts wird gespeichert) | ✓ (nur auf diesem Gerät) |
+| Augenspur | Standbild eines Durchgangs | Abspielen in Zeitlupe, alle Durchgänge, gespeichert |
 | Messreihen vergleichen | – | ✓ |
 | Export und Import | – | ✓ |
 
@@ -112,13 +113,25 @@ Nur bei senkrechter Messung, berechnet wie rechts/links. Ein Vorteil nach oben k
 
 ### Details
 
-Unter **Details** stehen alle Durchgänge mit Richtung, Geschwindigkeit, Gain, dem Anteil erkannter Bilder, dem Anteil mit Kopfbewegung und der Qualität, dazu die Augenspur als Kurve.
+Unter **Details** stehen alle Durchgänge mit Richtung, Geschwindigkeit, Gain, dem Anteil erkannter Bilder, dem Anteil mit Kopfbewegung und der Qualität.
 
 | Qualität | Bedingung |
 |---|---|
 | gut | mindestens 70 % der Bilder mit erkannten Augen und höchstens 20 % Kopfbewegung |
 | mäßig | mindestens 50 % und höchstens 40 % |
 | ungültig | alles darunter; dieser Durchgang zählt nicht |
+
+### Augenspur
+
+Unter dem Ergebnis zeigt die App die **Augenspur** eines Durchgangs:
+
+- **Vergrößerte Augen**, nachgezeichnet aus den Gesichtspunkten, die die Gesichtserkennung je Bild liefert (Augenwinkel, Lidrand, Iris). Es wird kein Kamerabild gezeigt oder gespeichert. Die Ansicht ist gespiegelt wie in einem Spiegel: Läuft das Reizmuster nach rechts, bewegen sich die Augen in der Ansicht nach rechts.
+- **Striche:** Die Bewegung der Iris der letzten gut einer Sekunde läuft wie bei einem Schreiber als Spur nach unten weg. Das **Mitgleiten** (langsame Phase, blau) erscheint als schräger Strich, der **Rücksprung** (schnelle Phase, orange) als kurzer Gegenstrich. Weil die Bewegung nur Bruchteile eines Millimeters beträgt, sind die Striche in Laufrichtung vergrößert; der Faktor steht im Bild.
+- **Kurve:** die Augenposition über die Zeit mit Zeitstrich, links in Grad, rechts in mm.
+- **Werte:** Mitgleiten in °/s und mm/s, mittlerer Rücksprung in Grad und mm, dazu die Messschwankung je Bild.
+- **Grad und mm:** Grad stammen aus der Kalibrierung. Millimeter schätzt die App über den Irisdurchmesser, der bei Erwachsenen bei etwa 11,7 mm liegt. Einzelne Bilder schwanken etwa um die angezeigte Messschwankung; Werte über viele Bilder sind genauer.
+- **Freemium:** Standbild eines Durchgangs als Vorgeschmack. **Studien:** Abspielen in Zeitlupe (¼×, ½×, 1×), Zeitregler, Wahl des Durchgangs; die Augenspur wird mit der Messung gespeichert und lässt sich jederzeit wieder ansehen.
+- Die Augenspur gibt es für Messungen ab App-Version 2.4. Ältere Messungen zeigen unter **Details** eine Kurve in Grad.
 
 ### Erste Messung und Vergleich (Studien)
 
@@ -136,6 +149,7 @@ Die **erste Messung** von Teilnehmenden unter bestimmten Versuchsbedingungen ist
 ## 10 Grenzen
 
 - Die Frontkamera liefert etwa 30 Bilder pro Sekunde. Das langsame Mitgleiten der Augen erfasst die App gut, die kurzen Rücksprünge nur grob.
+- Die mm-Werte der Augenspur beruhen auf einem durchschnittlichen Irisdurchmesser. Bei einzelnen Personen kann er etwas abweichen; für den Vergleich derselben Person spielt das keine Rolle.
 - Die App bildet den Mittelwert beider Augen. Unterschiede zwischen den Augen zeigt sie nicht.
 - Der Bildschirm deckt nur einen Teil des Blickfelds ab. Die Werte lassen sich nicht mit anderen Messverfahren vergleichen.
 - Die App vergleicht keine Personen untereinander und kennt keine Vergleichswerte.
@@ -144,7 +158,7 @@ Die **erste Messung** von Teilnehmenden unter bestimmten Versuchsbedingungen ist
 
 - Kamerabilder verlassen nie das Gerät. Die App sendet nichts an einen Server und speichert kein Video.
 - **Freemium** speichert keine Teilnehmenden und keine Messungen. Gespeichert werden nur Einstellungen wie Sprache und Geräte-Einrichtung.
-- **Studien** speichert Teilnehmende (nur mit Code oder Pseudonym) und Messungen **auf dem Gerät**.
+- **Studien** speichert Teilnehmende (nur mit Code oder Pseudonym) und Messungen **auf dem Gerät**. Zur Augenspur gehören je Bild 17 Gesichtspunkte pro Auge (Augenwinkel, Lidrand, Iris), etwa 1 MB pro Messung, aber keine Bilder.
   - **Exportieren** öffnet das Teilen-Menü (z. B. Dateien, AirDrop, Cloud-Speicher). Jede Messung wird als JSON-Datei (vollständig, wieder importierbar) und als CSV-Datei (für Excel, Zahlenformat passend zur Sprache) gespeichert.
   - **Importieren** lädt JSON-Dateien zurück, z. B. auf ein anderes Gerät.
   - Der Browser kann Website-Daten nach längerer Nichtnutzung löschen. Bitte regelmäßig exportieren.
