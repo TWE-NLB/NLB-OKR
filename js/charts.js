@@ -1,6 +1,6 @@
 // Diagramme mit Chart.js (globales `Chart` aus index.html). Farben kommen aus den CSS-Tokens.
 // Achsen laufen auch bei Schrift von rechts nach links von links nach rechts (Zeit, + = rechts).
-import { t, LOCALE, RTL } from './i18n.js?v=2.2.0';
+import { t, LOCALE, RTL } from './i18n.js?v=2.3.0';
 
 const charts = new Map();
 

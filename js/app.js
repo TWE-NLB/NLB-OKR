@@ -1,10 +1,12 @@
-// OKR-Schnellcheck: Asymmetrie rechts/links (und optional oben/unten) und Gain, Vergleich nur mit sich selbst.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.2.0';
-import { Tracker } from './tracker.js?v=2.2.0';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.2.0';
-import * as store from './store.js?v=2.2.0';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.2.0';
-import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.2.0';
+// Eye Reflex Lab: Asymmetrie rechts/links (und optional oben/unten) und Gain des optokinetischen Reflexes.
+// Zwei Versionen: Freemium (messen, nichts speichern) und Studien (Teilnehmende, Messreihen, Export/Import), siehe edition.js.
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.3.0';
+import { Tracker } from './tracker.js?v=2.3.0';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.3.0';
+import * as store from './store.js?v=2.3.0';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.3.0';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.3.0';
+import { isStudy, unlockInfo, tryUnlock, lapsed, PURCHASE_URL } from './edition.js?v=2.3.0';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,7 +52,8 @@ const AUTO_START_SEC = 2;     // Setup-Check: so lange alles grün → Kalibrier
 const INSTRUCTION = t('instruction');
 
 // ---------- Zustand ----------
-const state = { persons: [], measurements: [], view: 'home', personId: null, calib: null, run: null };
+const state = { persons: [], measurements: [], view: 'home', personId: null, calib: null, run: null, freeCond: null };
+const FREE_ID = 'free'; // Freemium: Messung ohne Teilnehmende, wird nicht gespeichert
 const video = $('#cam');
 const tracker = new Tracker(video, null);
 const stage = new Stage($('#stage'));
@@ -73,6 +76,8 @@ const condOf = (p) => {
   if (c.pattern !== 'stripes') c.pattern = 'symbols';
   return c;
 };
+// Freemium: Bedingungen nur für diese Sitzung; Studien: je Teilnehmende gespeichert
+const currentCond = () => (isStudy() ? condOf(personById(state.personId)) : condOf({ condition: state.freeCond }));
 const condKey = (c) => `${c.pattern}|${c.color}|${c.periodDeg}|${c.speeds.join('/')}`;
 const condText = (c) => `${PATTERN_LABEL[c.pattern]} · ${COLOR_LABEL[c.color]} · ${ltr(`${fmt(c.periodDeg, 0)}° · ${c.speeds.join(' / ')} °/s`)}`;
 
@@ -143,19 +148,63 @@ $('#back').addEventListener('click', () => {
 });
 
 // ---------- Übersicht ----------
+const dateLong = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
+
+// Version anzeigen; in Freemium mit Feld für den Freischalt-Code
+function editionHtml() {
+  const info = unlockInfo();
+  if (info) {
+    return `<div class="panel">
+      <h2>${t('edition_label')}: ${t('edition_study')}</h2>
+      <p class="hint">${t('edition_study_desc')}</p>
+      <p class="hint">${info.validUntil ? t('unlock_active_until', { date: dateLong(info.validUntil) }) : t('unlock_active')}</p>
+    </div>`;
+  }
+  return `<div class="panel">
+      <h2>${t('edition_label')}: ${t('edition_free')}</h2>
+      <p class="hint">${t('edition_free_desc')}</p>
+      ${lapsed ? `<p class="notice">${t('unlock_expired')}</p>` : ''}
+      <h3 style="margin-top:16px">${t('unlock_title')}</h3>
+      <p class="hint" style="margin-top:0">${t('edition_study_desc')}</p>
+      <form id="unlock-form" class="row" style="margin-top:10px">
+        <label for="unlock-code" class="sr">${t('unlock_code')}</label>
+        <input id="unlock-code" placeholder="${t('unlock_code')}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" required>
+        <button class="btn" type="submit">${t('unlock_button')}</button>
+      </form>
+      ${PURCHASE_URL ? `<p style="margin-top:10px"><a class="btn ghost" href="${esc(PURCHASE_URL)}" target="_blank" rel="noopener">${t('unlock_get')}</a></p>` : ''}
+    </div>`;
+}
+
+function deviceHtml(extraButtons = '') {
+  const preset = DEVICE_PRESETS.find((p) => p.id === device.device);
+  return `<dl class="kv">
+          <dt>${t('distance')}</dt><dd>${device.distanceCm} cm</dd>
+          <dt>${t('device')}</dt><dd>${esc(preset?.label ?? '')} (${Math.round(device.ppi)})</dd>
+        </dl>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" data-act="device">${t('set_up_device')}</button>${extraButtons}
+        </div>`;
+}
+
 function showHome() {
   state.personId = null;
-  const counts = {};
-  for (const m of state.measurements) counts[m.personId] = (counts[m.personId] || 0) + 1;
-  const persons = [...state.persons].sort((a, b) => a.name.localeCompare(b.name, LOCALE));
-  const preset = DEVICE_PRESETS.find((p) => p.id === device.device);
-  setView('home', `
+  const study = isStudy();
+  const head = `
     <div class="home-head">
       <img class="logo" src="img/nlb-logo.jpg" width="150" height="58" alt="NeuroLifeBalance">
       <div><h1>${t('app_title')}</h1>
+      <p class="subtitle">${t('app_subtitle')}</p>
       <p class="hint">${t('asymmetry_and_gain_of_the_optokinetic')}</p></div>
     </div>
-    ${device.configured ? '' : `<div class="notice row">${t('please_set_up_the_device_first')} <button class="btn" data-act="device">${t('set_up_device')}</button></div>`}
+    ${device.configured ? '' : `<div class="notice row">${t('please_set_up_the_device_first')} <button class="btn" data-act="device">${t('set_up_device')}</button></div>`}`;
+  const foot = `${editionHtml()}
+    <p class="hint">${t('not_a_medical_device')}</p>`;
+
+  if (study) {
+    const counts = {};
+    for (const m of state.measurements) counts[m.personId] = (counts[m.personId] || 0) + 1;
+    const persons = [...state.persons].sort((a, b) => a.name.localeCompare(b.name, LOCALE));
+    setView('home', `${head}
     <div class="grid-2">
       <div class="panel">
         <h2>${t('people')}</h2>
@@ -174,16 +223,10 @@ function showHome() {
       </div>
       <div class="panel">
         <h2>${t('device_and_data')}</h2>
-        <dl class="kv">
-          <dt>${t('distance')}</dt><dd>${device.distanceCm} cm</dd>
-          <dt>${t('device')}</dt><dd>${esc(preset?.label ?? '')} (${Math.round(device.ppi)})</dd>
-        </dl>
-        <div class="row" style="margin-top:12px">
-          <button class="btn" data-act="device">${t('set_up_device')}</button>
+        ${deviceHtml(`
           <label class="btn ghost" for="import-file">${t('import')}</label>
           <input id="import-file" type="file" accept=".json,application/json" multiple hidden>
-          <button class="btn ghost" data-act="export-all">${t('export_all')}</button>
-        </div>
+          <button class="btn ghost" data-act="export-all">${t('export_all')}</button>`)}
         <h3 style="margin-top:18px">${t('procedure')}</h3>
         <ol class="steps">
           <li>${t('choose_the_person_read_out_the')}</li>
@@ -196,22 +239,67 @@ function showHome() {
         ${installHtml()}
       </div>
     </div>
-    <p class="hint">${t('not_a_medical_device')}</p>`);
+    ${foot}`);
+    $('#person-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = $('#person-name').value.trim();
+      if (!name) return;
+      if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(t('person_exists', { name })); return; }
+      const p = { id: store.uid(), name, createdAt: new Date().toISOString(), condition: { ...DEFAULT_COND } };
+      await store.put('persons', p); state.persons.push(p);
+      showHome();
+    });
+    $('#import-file').addEventListener('change', importFiles);
+  } else {
+    // Freemium: direkt messen; Bedingungen gelten nur für diese Sitzung, nichts wird gespeichert
+    const c = currentCond();
+    const stored = state.measurements.length;
+    setView('home', `${head}
+    <div class="grid-2">
+      <div class="panel">
+        <div class="result-head">
+          <div><h2>${t('experiment')}</h2><div class="meta">${esc(condText(c))}${c.vertical ? ` · ${t('with_vertical')}` : ''}</div></div>
+          <div class="row"><button class="btn primary big" data-act="start" ${device.configured ? '' : 'disabled'}>${t('start_measurement')}</button></div>
+        </div>
+        <div class="instruction"><span class="k">${t('please_read_out_word_for_word')}</span>${INSTRUCTION}</div>
+        ${condFormHtml(c, t('free_conditions_note'))}
+      </div>
+      <div class="panel">
+        <h2>${t('device')}</h2>
+        ${deviceHtml()}
+        ${stored ? `<div class="notice" style="margin-top:14px">${t('free_saved_data', { n: stored })}
+          <div class="row" style="margin-top:8px"><button class="btn ghost" data-act="export-all">${t('export_all')}</button></div></div>` : ''}
+        <h3 style="margin-top:18px">${t('procedure')}</h3>
+        <ol class="steps">
+          <li>${t('steps_free_start')}</li>
+          <li>${t('setup_check_as_soon_as_everything')}</li>
+          <li>${t('calibration_follow_the_rabbit_with_the')}</li>
+          <li>${t('measurement_alternating_3_times_each_at')}</li>
+          <li>${t('steps_free_result')}</li>
+        </ol>
+        ${installHtml()}
+      </div>
+    </div>
+    ${foot}`);
+    $('#cond-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      state.freeCond = readCondForm();
+      toast(t('conditions_applied'));
+      showHome();
+    });
+  }
 
-  $('#person-form').addEventListener('submit', async (e) => {
+  $('#unlock-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = $('#person-name').value.trim();
-    if (!name) return;
-    if (state.persons.some((p) => p.name.toLowerCase() === name.toLowerCase())) { toast(t('person_exists', { name })); return; }
-    const p = { id: store.uid(), name, createdAt: new Date().toISOString(), condition: { ...DEFAULT_COND } };
-    await store.put('persons', p); state.persons.push(p);
-    showHome();
+    const ok = await tryUnlock($('#unlock-code').value);
+    toast(t(ok ? 'unlock_ok' : 'unlock_invalid'));
+    if (ok) showHome();
   });
-  $('#import-file').addEventListener('change', importFiles);
   main.onclick = (e) => {
     const pid = e.target.closest('[data-person]')?.dataset.person;
     if (pid) return showPerson(pid);
     const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'start') return startMeasurement();
     if (act === 'device') showDevice();
     if (act === 'export-all') exportAll();
     if (act === 'install' && installPrompt) installPrompt.prompt().then(() => { installPrompt = null; showHome(); }).catch(() => {});
@@ -320,7 +408,7 @@ function measurementsOf(pid) {
 
 function showPerson(pid) {
   const p = personById(pid);
-  if (!p) return showHome();
+  if (!p || !isStudy()) return showHome();
   state.personId = pid;
   const c = condOf(p);
   const all = measurementsOf(pid);
@@ -342,23 +430,7 @@ function showPerson(pid) {
       </div>
       ${device.configured ? '' : `<p class="notice">${t('please_set_up_device_overview')}</p>`}
       <div class="instruction"><span class="k">${t('please_read_out_word_for_word')}</span>${INSTRUCTION}</div>
-      <details class="cond">
-        <summary>${t('change_measurement_conditions')}</summary>
-        <form id="cond-form" class="form">
-          <div class="field"><label for="pattern">${t('pattern')}</label>
-            <select id="pattern">${PATTERNS.map((k) => `<option value="${k}" ${k === c.pattern ? 'selected' : ''}>${PATTERN_LABEL[k]}</option>`).join('')}</select></div>
-          <fieldset><legend>${t('colour')}</legend><div class="seg">
-            ${Object.keys(COLORS).map((k) => `<input type="radio" name="color" id="col-${k}" value="${k}" ${k === c.color ? 'checked' : ''}><label for="col-${k}"><i class="swatch" style="background:${COLORS[k]}"></i>${COLOR_LABEL[k]}</label>`).join('')}
-          </div></fieldset>
-          <div class="field"><label for="period">${t('width_colour_white_pair')}</label>
-            <div class="unit"><input id="period" type="number" min="2" max="20" step="0.5" value="${c.periodDeg}"><span>°</span></div></div>
-          <div class="field"><label for="speed1">${t('speeds')}</label>
-            <div class="unit"><input id="speed1" type="number" min="2" max="40" step="1" value="${c.speeds[0]}"><span>/</span><input id="speed2" type="number" min="2" max="40" step="1" value="${c.speeds[1]}" aria-label="${t('second_speed')}"><span>°/s</span></div></div>
-          <label class="confirm"><input type="checkbox" id="vertical" ${c.vertical ? 'checked' : ''}> ${t('also_measure_vertically')}</label>
-          <p class="hint">${t('note_measurements_with_different_conditions_are')}</p>
-          <div class="row"><button class="btn" type="submit">${t('apply')}</button></div>
-        </form>
-      </details>
+      ${condFormHtml(c, t('note_measurements_with_different_conditions_are'))}
     </div>
     ${ordered.length ? ordered.map(([k, list], gi) => `
       <div class="panel">
@@ -391,14 +463,7 @@ function showPerson(pid) {
 
   $('#cond-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const s1 = parseFloat($('#speed1').value), s2 = parseFloat($('#speed2').value);
-    p.condition = {
-      pattern: $('#pattern').value,
-      color: document.querySelector('input[name="color"]:checked')?.value || 'black',
-      periodDeg: Math.min(20, Math.max(2, parseFloat($('#period').value) || 8)),
-      speeds: [s1 > 0 ? s1 : 8, s2 > 0 ? s2 : 12],
-      vertical: $('#vertical').checked,
-    };
+    p.condition = readCondForm();
     await store.put('persons', p);
     toast(t('conditions_applied'));
     showPerson(pid);
@@ -412,6 +477,37 @@ function showPerson(pid) {
   $('#topmeta').textContent = p.name;
 }
 
+// Versuchsbedingungen: Formular (aufklappbar) und Auslesen
+function condFormHtml(c, note) {
+  return `<details class="cond">
+        <summary>${t('change_measurement_conditions')}</summary>
+        <form id="cond-form" class="form">
+          <div class="field"><label for="pattern">${t('pattern')}</label>
+            <select id="pattern">${PATTERNS.map((k) => `<option value="${k}" ${k === c.pattern ? 'selected' : ''}>${PATTERN_LABEL[k]}</option>`).join('')}</select></div>
+          <fieldset><legend>${t('colour')}</legend><div class="seg">
+            ${Object.keys(COLORS).map((k) => `<input type="radio" name="color" id="col-${k}" value="${k}" ${k === c.color ? 'checked' : ''}><label for="col-${k}"><i class="swatch" style="background:${COLORS[k]}"></i>${COLOR_LABEL[k]}</label>`).join('')}
+          </div></fieldset>
+          <div class="field"><label for="period">${t('width_colour_white_pair')}</label>
+            <div class="unit"><input id="period" type="number" min="2" max="20" step="0.5" value="${c.periodDeg}"><span>°</span></div></div>
+          <div class="field"><label for="speed1">${t('speeds')}</label>
+            <div class="unit"><input id="speed1" type="number" min="2" max="40" step="1" value="${c.speeds[0]}"><span>/</span><input id="speed2" type="number" min="2" max="40" step="1" value="${c.speeds[1]}" aria-label="${t('second_speed')}"><span>°/s</span></div></div>
+          <label class="confirm"><input type="checkbox" id="vertical" ${c.vertical ? 'checked' : ''}> ${t('also_measure_vertically')}</label>
+          <p class="hint">${note}</p>
+          <div class="row"><button class="btn" type="submit">${t('apply')}</button></div>
+        </form>
+      </details>`;
+}
+function readCondForm() {
+  const s1 = parseFloat($('#speed1').value), s2 = parseFloat($('#speed2').value);
+  return {
+    pattern: $('#pattern').value,
+    color: document.querySelector('input[name="color"]:checked')?.value || 'black',
+    periodDeg: Math.min(20, Math.max(2, parseFloat($('#period').value) || 8)),
+    speeds: [s1 > 0 ? s1 : 8, s2 > 0 ? s2 : 12],
+    vertical: $('#vertical').checked,
+  };
+}
+
 // ---------- Messung starten → Setup-Check ----------
 let checkBuf = [], checkOff = null, checkTimer = null, greenSince = null;
 const STATUS = { camera: t('starting_camera'), model: t('loading_face_detection') };
@@ -423,7 +519,7 @@ function startMeasurement() {
   // Android: im Vollbild auf Querformat festlegen (iOS kennt das nicht, Fehler werden ignoriert)
   Promise.resolve(fs).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
   navigator.wakeLock?.request('screen').then((l) => { wakeLock = l; }).catch(() => {});
-  const c = condOf(personById(state.personId));
+  const c = currentCond();
   setView('check', `
     <div class="check-layout">
       <div class="cam-box" id="cam-box"><div class="cam-status" id="cam-status">${STATUS.camera}</div></div>
@@ -534,7 +630,7 @@ function beginCalibration() {
   stopCheckLoop();
   state.view = 'calib';
   showFs();
-  const c = condOf(personById(state.personId));
+  const c = currentCond();
   let n = 3;
   const tick = () => {
     stage.fill();
@@ -734,8 +830,9 @@ async function finishRun() {
   M.off?.(); stage.c.onpointerdown = null; state.run = null;
   exitFullscreen(); stopTracking();
   const blocks = finalBlocks(M);
-  const p = personById(state.personId);
-  if (!blocks.length) { toast(t('measurement_ended_no_round_completed_nothing')); showPerson(p.id); return; }
+  const free = !isStudy();
+  const p = free ? { id: FREE_ID, name: '' } : personById(state.personId);
+  if (!blocks.length) { toast(t('measurement_ended_no_round_completed_nothing')); if (free) showHome(); else showPerson(p.id); return; }
   const cal = state.calib;
   const used = new Set(blocks.map((b) => `${b.planIdx}|${b.attempt}`));
   const keep = M.samples.filter((x) => used.has(`${x.block}|${x.attempt}`));
@@ -757,8 +854,10 @@ async function finishRun() {
         x.valid ? r(cal.ax + cal.bx * x.fx, 2) : null, x.valid && M.c.vertical ? r(cal.ay + cal.by * x.fy, 2) : null, r(x.scale, 1)]),
     },
   };
-  try { await store.put('measurements', m); } catch (err) { console.error(err); toast(t('saving_in_the_browser_failed_please')); }
-  state.measurements.push(m);
+  if (!free) {
+    try { await store.put('measurements', m); } catch (err) { console.error(err); toast(t('saving_in_the_browser_failed_please')); }
+    state.measurements.push(m);
+  }
   showResult(m, true);
 }
 
@@ -772,10 +871,10 @@ function rlText(h) {
   const v = ltr(`${signed(h.mean)} %`), ci = ltr(`± ${fmtCi(h.ci)} %`);
   const side = h.mean < 0 ? 'right' : 'left'; // schwächer verfolgte Richtung
   if (h.verdict === 'deutlich') {
-    return { cls: 'bad', title: t(`rl_clear_title_${side}`), body: t(`rl_clear_body_${side}`, { v, ci }) };
+    return { cls: 'note', title: t(`rl_clear_title_${side}`), body: t(`rl_clear_body_${side}`, { v, ci }) };
   }
   if (h.verdict === 'gering') {
-    return { cls: 'good', title: t('no_clear_direction_difference'), body: t('rl_small_body', { v, ci, min: ASYM_MIN }) };
+    return { cls: '', title: t('no_clear_direction_difference'), body: t('rl_small_body', { v, ci, min: ASYM_MIN }) };
   }
   return { cls: 'warn', title: t('direction_difference_unclear'), body: t('rl_unclear_body', { v, ci }) };
 }
@@ -789,10 +888,12 @@ function changeLine(cur, base, unit, digits, isBase) {
 function showResult(m, fresh = false) {
   if (!m) return;
   if (!isQuick(m)) return showLegacy(m);
-  state.personId = m.personId;
+  const free = m.personId === FREE_ID;
+  state.personId = free ? null : m.personId;
   const res = m.result;
-  const base = baselineOf(m);
-  const isBase = !base || base.id === m.id;
+  const base = free ? null : baselineOf(m);
+  const isBase = !free && (!base || base.id === m.id);
+  const hintIf = (text) => (text ? `<p class="hint">${esc(text)}</p>` : '');
   const rl = rlText(res.h);
   const v = res.v;
   const vText = v && v.n >= 2
@@ -804,11 +905,13 @@ function showResult(m, fresh = false) {
   setView('result', `
     <div class="panel">
       <div class="result-head">
-        <div><h2>${esc(m.personName)}</h2>
-        <div class="meta">${dateStr(m.createdAt)} · ${esc(condText(m.condition))}${isBase ? ` · ${t('baseline')}` : ` · ${t('baseline')}: ${dateShort(base.createdAt)}`}</div></div>
-        <div class="row"><button class="btn danger" data-act="delete">${t('delete')}</button><button class="btn primary" data-act="export">${t('export')}</button></div>
+        <div><h2>${free ? t('result_title') : esc(m.personName)}</h2>
+        <div class="meta">${dateStr(m.createdAt)} · ${esc(condText(m.condition))}${free ? '' : isBase ? ` · ${t('baseline')}` : ` · ${t('baseline')}: ${dateShort(base.createdAt)}`}</div></div>
+        <div class="row">${free
+          ? `<button class="btn primary" data-act="again" ${device.configured ? '' : 'disabled'}>${t('new_measurement')}</button>`
+          : `<button class="btn danger" data-act="delete">${t('delete')}</button><button class="btn primary" data-act="export">${t('export')}</button>`}</div>
       </div>
-      ${fresh ? `<p class="hint">${t('saved_on_this_device_to_back')}</p>` : ''}
+      ${free ? `<p class="hint">${t('free_result_not_saved')}</p>` : fresh ? `<p class="hint">${t('saved_on_this_device_to_back')}</p>` : ''}
       <div id="del-confirm" class="notice" hidden>${t('really_delete_this_measurement_exported_files')}
         <div class="row" style="margin-top:8px"><button class="btn" data-act="del-no">${t('keep')}</button><button class="btn danger" data-act="del-yes">${t('delete_permanently')}</button></div></div>
     </div>
@@ -817,20 +920,20 @@ function showResult(m, fresh = false) {
         <div class="k">${t('asymmetry_right_left')}</div>
         <div class="v">${signed(res.h.mean)} %</div>
         <h3>${esc(rl.title)}</h3><p>${esc(rl.body)}</p>
-        <p class="hint">${esc(changeLine(res.h.mean, base?.result.h.mean, pp, 0, isBase))}</p>
+        ${free ? '' : hintIf(changeLine(res.h.mean, base?.result.h.mean, pp, 0, isBase))}
       </div>
       ${v ? `<div class="panel rtile">
         <div class="k">${t('asymmetry_up_down')}</div>
         <div class="v">${signed(v.mean)} %</div>
         <p>${esc(vText)}</p>
-        <p class="hint">${esc(changeLine(v.mean, base?.result.v?.mean, pp, 0, isBase))}</p>
+        ${free ? '' : hintIf(changeLine(v.mean, base?.result.v?.mean, pp, 0, isBase))}
       </div>` : ''}
       <div class="panel rtile">
         <div class="k">${t('gain')}</div>
         <div class="v">${fmt(res.gain)}</div>
         <p>${t('how_fast_the_eyes_follow_the')}</p>
         <p class="sub mono">← ${fmt(res.gainByDir.L)} · → ${fmt(res.gainByDir.R)}${v ? ` · ↑ ${fmt(res.gainByDir.U)} · ↓ ${fmt(res.gainByDir.D)}` : ''}</p>
-        <p class="hint">${esc(changeLine(res.gain, base?.result.gain, '', 2, isBase))}</p>
+        ${free ? '' : hintIf(changeLine(res.gain, base?.result.gain, '', 2, isBase))}
       </div>
     </div>
     <details class="panel" id="details">
@@ -863,6 +966,7 @@ function showResult(m, fresh = false) {
 
   main.onclick = async (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'again') return startMeasurement();
     if (act === 'export') exportMeasurement(m);
     if (act === 'delete') $('#del-confirm').hidden = false;
     if (act === 'del-no') $('#del-confirm').hidden = true;
@@ -873,7 +977,7 @@ function showResult(m, fresh = false) {
       showPerson(m.personId);
     }
   };
-  $('#topmeta').textContent = m.personName;
+  $('#topmeta').textContent = free ? '' : m.personName;
 }
 
 function showLegacy(m) {
@@ -975,6 +1079,13 @@ async function init() {
   } catch (err) {
     console.error(err);
     toast(t('device_storage_not_available_private_window'));
+  }
+  // Freischaltung per Link, z. B. aus einer Kurs-Mail oder einem QR-Code; der Code verschwindet danach aus der Adresse
+  const code = new URLSearchParams(location.search).get('code');
+  if (code) {
+    const ok = await tryUnlock(code);
+    const u = new URL(location.href); u.searchParams.delete('code'); history.replaceState(null, '', u);
+    toast(t(ok ? 'unlock_ok' : 'unlock_invalid'));
   }
   showHome();
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) toast(t('camera_only_available_over_https'));

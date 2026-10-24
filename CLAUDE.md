@@ -1,8 +1,8 @@
-# NLB-OKR – Hinweise für Claude
+# Eye Reflex Lab (Repo NLB-OKR) – Hinweise für Claude
 
 ## Projekt
 
-Demo-Web-App für einen OKR/OKN-Schnellcheck (optokinetischer Reflex) auf iPad, iPhone und Android, Augen-Tracking über die Frontkamera. Positionierung: Wellness-Anwendung, kein Medizinprodukt. App-Texte nur nach dem Claims-Leitfaden im Marketing-Repo (`grundlagen/claims-leitfaden.md`) formulieren.
+**Eye Reflex Lab** – „Das Experiment zum optokinetischen Reflex“: Web-App auf iPad, iPhone und Android, Augen-Tracking über die Frontkamera. Positionierung: Wellness- und Lehranwendung, kein Medizinprodukt; Begriffe generisch wissenschaftlich (Teilnehmende, Versuchsbedingungen, Durchgang, erste Messung, Messreihe). Früherer Name „OKR-Schnellcheck“ nicht mehr verwenden. Repo-Name und Adresse bleiben vorerst. App-Texte nur nach dem Claims-Leitfaden im Marketing-Repo (`grundlagen/claims-leitfaden.md`) formulieren.
 Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://twe-nlb.github.io/NLB-OKR/
 
 **Das Repo ist öffentlich.** Alles, was hier committet wird, ist für alle sichtbar und wird von automatischen Programmen kopiert. Ein einmal gepushtes Geheimnis gilt als verraten, auch wenn es später gelöscht wird.
@@ -21,6 +21,7 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 | `js/app.js` | Ablauf: Geräte-Einrichtung (iOS-Gerätetypen, Karten-Abgleich für Android), Personen, Setup-Check, Kalibrierung, Messung, Ergebnis, Export |
 | `js/analysis.js` | Auswertung ohne DOM (Gain, Asymmetrie, Kalibrierung); Tests in `test/` |
 | `js/stage.js`, `js/charts.js`, `js/tracker.js`, `js/store.js` | Muster/Figuren, Diagramme, Gesichtserkennung, Speicher |
+| `js/edition.js`, `config/editions.json`, `tools/new_code.py` | Versionen Freemium (nichts speichern) und Studien (Freischaltung per Code; im Repo nur SHA-256-Prüfsummen, nie Codes im Klartext) |
 | `js/i18n.js`, `lang/*.json` | Sprachen; alle Texte stehen in `lang/<code>.json`, nie im Code |
 | `docs/` | Öffentliche Anleitung in Wellness-Sprache: `guide_de/en/he.md` (Quelle) und `.docx`. Kein Bezug zu Krankheiten, Hirnbereichen oder Studien; der wissenschaftliche Hintergrund liegt nur intern im Marketing-Repo (`wissenschaft/`) |
 | `tools/`, `.githooks/` | Geheimnis-Wächter (siehe unten) |
@@ -54,5 +55,6 @@ Durchgesetzt wird das technisch in drei Stufen:
 - Schlägt der Wächter an: das Geheimnis entfernen bzw. die Datei aus dem Commit nehmen, nicht die Prüfung umgehen. Dem Nutzer sagen, was gefunden wurde (ohne den Wert zu wiederholen).
 - Ist doch ein Geheimnis veröffentlicht worden: den Nutzer sofort informieren. Das Geheimnis muss beim Anbieter gesperrt und ersetzt werden; Löschen aus dem Repo reicht nicht.
 - Fehlalarm in einer harmlosen Zeile: nur nach Rückfrage beim Nutzer in derselben Zeile `secret-guard: allow` vermerken.
+- Freischalt-Codes der Studien-Version nie im Klartext ins Repo, in Commit-Nachrichten oder in Issues schreiben; in `config/editions.json` stehen nur Prüfsummen (`tools/new_code.py`).
 - Geheimnisse, die die App künftig braucht, gehören in nicht versionierte Dateien (`.env`, `.claude/settings.local.json`) oder in GitHub-Secrets, nie in den Code.
 - Manuelle Prüfung: `python3 tools/secret_guard.py --all` (aktueller Stand) bzw. `--history` (gesamte Versionsgeschichte).

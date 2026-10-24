@@ -72,6 +72,7 @@ main { padding: 16px; max-width: 1180px; margin: 0 auto; }
 .home-head { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .home-head h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
 .home-head .hint { margin: 2px 0 0; }
+.home-head .subtitle { margin: 2px 0 0; font-size: 15px; font-weight: 500; color: var(--accent); }
 /* Logo hat weißen Hintergrund: auf einer weißen Fläche, damit es auch im dunklen Design sauber aussieht */
 .logo { display: block; height: 58px; width: auto; max-width: 100%; background: #fff; border-radius: 8px; padding: 6px 10px; box-sizing: content-box; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
@@ -238,6 +239,8 @@ details.cond .form { margin-top: 12px; }
 .rtile.bad { border-inline-start: 4px solid var(--bad); }
 .rtile.warn { border-inline-start: 4px solid var(--warn); }
 .rtile.good { border-inline-start: 4px solid var(--good); }
+/* Richtungsunterschied hervorheben, ohne Bewertung (keine Ampelfarbe) */
+.rtile.note { border-inline-start: 4px solid var(--accent); }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--surface-2); }
 .auto { color: var(--good); font-weight: 600; min-height: 1.4em; margin: 0 0 8px; }
