@@ -26,6 +26,7 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 | `js/i18n.js`, `lang/*.json` | Sprachen; alle Texte stehen in `lang/<code>.json`, nie im Code |
 | `docs/` | Öffentliche Anleitung in Wellness-Sprache: `guide_de/en/he.md` (Quelle) und `.docx`. Kein Bezug zu Krankheiten, Hirnbereichen oder Studien; der wissenschaftliche Hintergrund liegt nur intern im Marketing-Repo (`wissenschaft/`) |
 | `tools/`, `.githooks/` | Geheimnis-Wächter (siehe unten) |
+| `vendor/` | Fremde Dateien lokal (DSGVO): Schriften IBM Plex, Chart.js, MediaPipe mit Modell; Versionen und Lizenzen in `vendor/README.md`. Keine Google Fonts und keine CDNs wieder einbauen |
 
 ## Veröffentlichen
 

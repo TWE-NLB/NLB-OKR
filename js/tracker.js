@@ -1,9 +1,10 @@
 // Kamera, Gesichts-/Iris-Erkennung (MediaPipe Face Landmarker) und Bewegungssensor.
-import { EYE_LANDMARKS, N_VALUES } from './eyetrace.js?v=2.4.1';
+import { EYE_LANDMARKS, N_VALUES } from './eyetrace.js?v=2.4.2';
 
 const MP_VERSION = '0.10.14';
-const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+// Alles lokal aus dem Repo (vendor/), keine Verbindung zu fremden Servern
+const MP_BASE = new URL('../vendor/mediapipe', import.meta.url).href;
+const MODEL_URL = new URL('../vendor/models/face_landmarker.task', import.meta.url).href;
 
 // Landmarken-Indizes des 478-Punkte-Modells
 const R_OUT = 33, R_IN = 133, R_UP = 159, R_LO = 145;
@@ -11,7 +12,7 @@ const L_IN = 362, L_OUT = 263, L_UP = 386, L_LO = 374;
 const IRIS_A = 468, IRIS_B = 473;
 
 async function loadLandmarker() {
-  const { FaceLandmarker, FilesetResolver } = await import(`${MP_BASE}/vision_bundle.mjs`);
+  const { FaceLandmarker, FilesetResolver } = await import(`${MP_BASE}/vision_bundle.mjs?v=${MP_VERSION}`);
   const fileset = await FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);
   const common = { runningMode: 'VIDEO', numFaces: 1, outputFacialTransformationMatrixes: true };
   try {

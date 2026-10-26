@@ -1,9 +1,9 @@
 // Anzeige der Augenspur: vergrößerte, aus den gespeicherten Gesichtspunkten nachgezeichnete Augen (gespiegelt wie in
 // einem Spiegel), Striche für Mitgleiten und Rücksprung, Kurve mit Zeitstrich, Werte in Grad und mm.
 // Studien: Abspielen mit Zeitlupe und Wahl des Durchgangs. Freemium: Standbild eines Durchgangs.
-import { decodeFrames, eyeGeometry, mmSeries, phaseLabels, trialStats, smoothSlow, median, IRIS_MM } from './eyetrace.js?v=2.4.1';
-import { DIRS } from './analysis.js?v=2.4.1';
-import { t, ltr, LOCALE } from './i18n.js?v=2.4.1';
+import { decodeFrames, eyeGeometry, mmSeries, phaseLabels, trialStats, smoothSlow, median, IRIS_MM } from './eyetrace.js?v=2.4.2';
+import { DIRS } from './analysis.js?v=2.4.2';
+import { t, ltr, LOCALE } from './i18n.js?v=2.4.2';
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const fmt = (v, d) => (Number.isFinite(v) ? v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');

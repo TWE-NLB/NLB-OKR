@@ -12,11 +12,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-180.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="css/app.css?v=2.4.1">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="vendor/fonts/fonts.css?v=2.4.2">
+  <link rel="stylesheet" href="css/app.css?v=2.4.2">
+  <script src="vendor/chartjs/chart.umd.min.js?v=4.4.1"></script>
 </head>
 <body>
   <header class="topbar">
@@ -39,7 +37,7 @@
   <div id="rotate" hidden><div></div></div>
   <div id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script type="module" src="js/app.js?v=2.4.1"></script>
+  <script type="module" src="js/app.js?v=2.4.2"></script>
   <script>
     // Falls das Programm nicht startet (z. B. alte Dateien im Browser-Cache), Hinweis statt leerer Seite
     setTimeout(function () {

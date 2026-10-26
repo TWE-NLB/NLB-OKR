@@ -1,14 +1,14 @@
 // Eye Reflex Lab: Asymmetrie rechts/links (und optional oben/unten) und Gain des optokinetischen Reflexes.
 // Zwei Versionen: Freemium (messen, nichts speichern) und Studien (Teilnehmende, Messreihen, Export/Import), siehe edition.js.
-import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.4.1';
-import { Tracker } from './tracker.js?v=2.4.1';
-import { Stage, PATTERNS, COLORS } from './stage.js?v=2.4.1';
-import * as store from './store.js?v=2.4.1';
-import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.4.1';
-import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.4.1';
-import { isStudy, unlockInfo, tryUnlock, lapsed, PURCHASE_URL } from './edition.js?v=2.4.1';
-import { encodeFrames, N_VALUES } from './eyetrace.js?v=2.4.1';
-import { createEyeTrace } from './eyeview.js?v=2.4.1';
+import { DIRS, fitCalibration, analyzeBlock, summarizeQuick, median, sd, ASYM_MIN } from './analysis.js?v=2.4.2';
+import { Tracker } from './tracker.js?v=2.4.2';
+import { Stage, PATTERNS, COLORS } from './stage.js?v=2.4.2';
+import * as store from './store.js?v=2.4.2';
+import { traceChart, timelineChart, destroyAll } from './charts.js?v=2.4.2';
+import { t, ltr, LANG, LANGS, LOCALE, setLang } from './i18n.js?v=2.4.2';
+import { isStudy, unlockInfo, tryUnlock, lapsed, PURCHASE_URL } from './edition.js?v=2.4.2';
+import { encodeFrames, N_VALUES } from './eyetrace.js?v=2.4.2';
+import { createEyeTrace } from './eyeview.js?v=2.4.2';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
