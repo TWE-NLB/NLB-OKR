@@ -1,3 +1,11 @@
 #!/bin/sh
-# Geheimnis-Wächter: prüft jeden Commit, der gepusht wird (siehe CLAUDE.md)
-exec python3 "$(git rev-parse --show-toplevel)/tools/secret_guard.py" --push
+# Vor jedem Push (= Veröffentlichung über GitHub Pages):
+# 1. Geheimnis-Wächter prüft jeden Commit, der gepusht wird (siehe CLAUDE.md)
+# 2. Quality-Gate: alle Tests und Prüfungen müssen grün sein (siehe test/README.md)
+ROOT="$(git rev-parse --show-toplevel)"
+python3 "$ROOT/tools/secret_guard.py" --push || exit 1
+cd "$ROOT" && python3 tools/quality_gate.py || {
+  echo ""
+  echo "Push gestoppt: Das Quality-Gate ist rot. Fehler beheben, dann erneut pushen."
+  exit 1
+}

@@ -72,11 +72,10 @@ Fehlt in einer Sprache ein Text, zeigt die App die englische Fassung. Die feste 
 
 ## Entwicklung
 
-Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Auswertungstests:
+Statische Seite ohne Build-Schritt (`index.html`, `css/`, `js/`). Quality-Gate mit allen Tests (muss vor jeder Veröffentlichung grün sein, läuft automatisch vor jedem Push; siehe `test/README.md`):
 
 ```bash
-/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js
-/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/eyetrace.test.js
+python3 tools/quality_gate.py
 ```
 
 Lokal starten mit `python3 -m http.server 8765`. Bei jeder Veröffentlichung die Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (die Sprachdateien übernehmen sie automatisch), sonst lädt Safari teils alte Dateien. Für die Kamera auf dem Gerät ist HTTPS nötig, also über GitHub Pages testen.

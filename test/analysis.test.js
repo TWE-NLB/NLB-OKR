@@ -1,12 +1,11 @@
-// Ausführen: /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js
+// Auswertung (js/analysis.js): Gain, Kalibrierung, Richtungsunterschied – mit künstlichen Augenbewegungen
+import { suite, test, assert } from './engine.js';
 import { analyzeBlock, fitCalibration, summarize, summarizeQuick, asymStats } from '../js/analysis.js';
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
-let fails = 0;
-const check = (name, cond, info) => { print(`${cond ? 'OK  ' : 'FAIL'} ${name} ${info ?? ''}`); if (!cond) fails++; };
 
-// Synthetischer OKN-Sägezahn: 30 fps, Gain 0,8, Rückstellung alle 0,4 s
+// Künstlicher Sägezahn: 30 Bilder/s, Mitgleiten mit gain × speed, Rücksprung alle `period` s
 function sawtooth(speed, gain, period, sec, noise = 0.15) {
   const t = [], p = [], valid = [], shake = [];
   let pos = 0, nextReset = period;
@@ -19,56 +18,61 @@ function sawtooth(speed, gain, period, sec, noise = 0.15) {
   return { t, p, valid, shake };
 }
 
-const r = analyzeBlock(sawtooth(20, 0.8, 0.4, 10), 20);
-check('Gain ≈ 0,8', Math.abs(r.gain - 0.8) < 0.08, r.gain.toFixed(3));
-check('Schlagfrequenz ≈ 2,5 Hz', Math.abs(r.beatHz - 2.5) < 0.4, r.beatHz.toFixed(2));
-// Sprung von Bild zu Bild: 6,4° Rückstellung minus 0,53° Drift im selben Bild
-check('Amplitude ≈ 5,9°', Math.abs(r.ampDeg - 5.87) < 0.6, r.ampDeg.toFixed(2));
-check('Qualität gut', r.quality === 'gut', r.quality);
-
-const slow = analyzeBlock(sawtooth(10, 0.95, 0.6, 10), 10);
-check('Gain 10°/s ≈ 0,95', Math.abs(slow.gain - 0.95) < 0.1, slow.gain.toFixed(3));
-
-const none = analyzeBlock({ t: [1, 2], p: [0, 0], valid: [true, true], shake: [false, false] }, 20);
-check('Zu wenig Daten → ungültig', none.quality === 'ungültig');
-
-// Kalibrierung: Merkmal = 0,02 pro Grad, negatives Vorzeichen (Kamerabild gespiegelt)
+// Kalibrierpunkt: Merkmal = 0,02 pro Grad, negatives Vorzeichen (Kamerabild gespiegelt)
 function point(tx, ty) {
   const samples = [];
   for (let i = 0; i < 25; i++) samples.push({ fx: -0.02 * tx + rnd() * 0.004, fy: -0.012 * ty + rnd() * 0.004, valid: true, cx: 300 + rnd(), cy: 200 + rnd(), scale: 100, open: 0.3 });
   return { tx, ty, samples };
 }
-const cal = fitCalibration([point(0, 0), point(-12, 0), point(0, 0), point(12, 0), point(0, 0), point(0, -8), point(0, 0), point(0, 8), point(0, 0)], { mode: 'stand' });
-check('Kalibrierung OK', cal.ok, cal.issues.join(' | '));
-check('Steigung x ≈ -50 °/Einheit', Math.abs(cal.bx + 50) < 3, cal.bx.toFixed(1));
 
-const flat = [point(0, 0), point(-12, 0), point(12, 0), point(0, -8), point(0, 8)].map((p) => ({ ...p, samples: p.samples.map((s) => ({ ...s, fx: rnd() * 0.004, fy: rnd() * 0.004 })) }));
-check('Ohne Augenbewegung → nicht OK', !fitCalibration(flat).ok);
+suite('Auswertung eines Durchgangs (analyzeBlock)', () => {
+  const r = analyzeBlock(sawtooth(20, 0.8, 0.4, 10), 20);
+  test('Gain ≈ 0,8 bei 20 °/s', () => assert.close(r.gain, 0.8, 0.08));
+  test('Schlagfrequenz ≈ 2,5 Hz', () => assert.close(r.beatHz, 2.5, 0.4));
+  test('Rücksprung-Amplitude ≈ 5,9°', () => assert.close(r.ampDeg, 5.87, 0.6));
+  test('Qualität „gut“', () => assert.equal(r.quality, 'gut'));
+  test('Gain ≈ 0,95 bei 10 °/s', () => assert.close(analyzeBlock(sawtooth(10, 0.95, 0.6, 10), 10).gain, 0.95, 0.1));
+  test('Zu wenige Daten → ungültig', () => {
+    assert.equal(analyzeBlock({ t: [1, 2], p: [0, 0], valid: [true, true], shake: [false, false] }, 20).quality, 'ungültig');
+  });
+});
 
-const sum = summarize([
-  { dir: 'L', speed: 20, gain: 0.8, beatHz: 2, ampDeg: 5, quality: 'gut' },
-  { dir: 'R', speed: 20, gain: 1.0, beatHz: 2, ampDeg: 5, quality: 'gut' },
-  { dir: 'U', speed: 20, gain: 0.5, beatHz: 2, ampDeg: 5, quality: 'ungültig' },
-]);
-check('Asymmetrie R/L ≈ 22 %', Math.abs(sum.asymH - 22.2) < 0.5, sum.asymH.toFixed(1));
-check('Ungültige Blöcke ignoriert', sum.validBlocks === 2);
+suite('Kalibrierung (fitCalibration)', () => {
+  const cal = fitCalibration([point(0, 0), point(-12, 0), point(0, 0), point(12, 0), point(0, 0), point(0, -8), point(0, 0), point(0, 8), point(0, 0)], { mode: 'stand' });
+  test('9 Punkte → OK', () => assert.ok(cal.ok, cal.issues.join(' | ')));
+  test('Steigung x ≈ −50 °/Einheit', () => assert.close(cal.bx, -50, 3));
+  test('Nur waagerecht (5 Punkte) → OK', () => {
+    const c = fitCalibration([point(0, 0), point(-12, 0), point(0, 0), point(12, 0), point(0, 0)], { mode: 'stand', vertical: false });
+    assert.ok(c.ok, c.issues.join(' | '));
+  });
+  test('Ohne Augenbewegung → nicht OK', () => {
+    const flat = [point(0, 0), point(-12, 0), point(12, 0), point(0, -8), point(0, 8)]
+      .map((p) => ({ ...p, samples: p.samples.map((s) => ({ ...s, fx: rnd() * 0.004, fy: rnd() * 0.004 })) }));
+    assert.ok(!fitCalibration(flat).ok);
+  });
+});
 
-// Kalibrierung nur waagerecht (5 Punkte)
-const calH = fitCalibration([point(0, 0), point(-12, 0), point(0, 0), point(12, 0), point(0, 0)], { mode: 'stand', vertical: false });
-check('Kalibrierung nur waagerecht OK', calH.ok, calH.issues.join(' | '));
+suite('Zusammenfassung und Richtungsunterschied', () => {
+  const sum = summarize([
+    { dir: 'L', speed: 20, gain: 0.8, beatHz: 2, ampDeg: 5, quality: 'gut' },
+    { dir: 'R', speed: 20, gain: 1.0, beatHz: 2, ampDeg: 5, quality: 'gut' },
+    { dir: 'U', speed: 20, gain: 0.5, beatHz: 2, ampDeg: 5, quality: 'ungültig' },
+  ]);
+  test('Unterschied R/L ≈ 22 %', () => assert.close(sum.asymH, 22.2, 0.5));
+  test('Ungültige Durchgänge zählen nicht', () => assert.equal(sum.validBlocks, 2));
 
-// Schnellcheck: rechts deutlich schwächer (Gain R 0,6 vs. L 0,8), 3 Wiederholungen × 2 Geschwindigkeiten
-const qb = [];
-for (const speed of [8, 12]) for (const rep of [1, 2, 3]) {
-  qb.push({ dir: 'L', speed, rep, gain: 0.8 + (rep - 2) * 0.01, quality: 'gut' });
-  qb.push({ dir: 'R', speed, rep, gain: 0.6 + (rep - 2) * 0.015, quality: 'gut' });
-}
-const qs = summarizeQuick(qb);
-check('Asymmetrie R/L ≈ −29 %', Math.abs(qs.h.mean + 28.6) < 2, qs.h.mean.toFixed(1));
-check('Bewertung deutlich', qs.h.verdict === 'deutlich', qs.h.verdict + ' ±' + qs.h.ci.toFixed(1));
-check('Kein senkrechter Wert ohne senkrechte Blöcke', qs.v === null);
-check('Kleine Asymmetrie → gering', asymStats([3, -2, 4, 1, 0, 2]).verdict === 'gering');
-check('Große Streuung → unklar', asymStats([30, -10, 40, -5, 25, -20]).verdict === 'unklar');
-check('Ungültiger Block fällt aus dem Paar', summarizeQuick([{ dir: 'L', speed: 8, rep: 1, gain: 0.8, quality: 'gut' }, { dir: 'R', speed: 8, rep: 1, gain: 0.5, quality: 'ungültig' }]).h.n === 0);
-
-print(fails ? `${fails} Test(s) fehlgeschlagen` : 'Alle Tests bestanden');
+  const qb = [];
+  for (const speed of [8, 12]) for (const rep of [1, 2, 3]) {
+    qb.push({ dir: 'L', speed, rep, gain: 0.8 + (rep - 2) * 0.01, quality: 'gut' });
+    qb.push({ dir: 'R', speed, rep, gain: 0.6 + (rep - 2) * 0.015, quality: 'gut' });
+  }
+  const qs = summarizeQuick(qb);
+  test('Schnellauswertung: Unterschied R/L ≈ −29 %', () => assert.close(qs.h.mean, -28.6, 2));
+  test('Klarer Unterschied → „deutlich“', () => assert.equal(qs.h.verdict, 'deutlich'));
+  test('Ohne senkrechte Durchgänge kein senkrechter Wert', () => assert.equal(qs.v, null));
+  test('Kleiner Unterschied → „gering“', () => assert.equal(asymStats([3, -2, 4, 1, 0, 2]).verdict, 'gering'));
+  test('Große Streuung → „unklar“', () => assert.equal(asymStats([30, -10, 40, -5, 25, -20]).verdict, 'unklar'));
+  test('Ungültiger Durchgang fällt aus dem Paar', () => {
+    assert.equal(summarizeQuick([{ dir: 'L', speed: 8, rep: 1, gain: 0.8, quality: 'gut' }, { dir: 'R', speed: 8, rep: 1, gain: 0.5, quality: 'ungültig' }]).h.n, 0);
+  });
+});

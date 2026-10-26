@@ -12,6 +12,7 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 - Mit dem Nutzer auf Deutsch kommunizieren, in einfacher, klarer Sprache.
 - Commit und Push nur, wenn der Nutzer es ausdrücklich verlangt. Commit-Nachrichten auf Deutsch.
 - Bedienung der App muss einfach und eindeutig bleiben; Änderungen in der Vorschau prüfen (`.claude/launch.json`, Server „okr“).
+- **Tests automatisch mitentwickeln (ohne Rückfrage):** Bei jedem neuen Feature und jeder geänderten Berechnung im selben Schritt passende Tests in `test/*.test.js` schreiben bzw. anpassen (neue Datei in `test/run.js` eintragen) und `test/README.md` (Testliste, Anzahl) aktualisieren. Bei einem Fehler zuerst einen Test, der ihn zeigt, dann die Korrektur. Was sich nicht automatisch testen lässt (Kamera, Anzeige), in der Vorschau prüfen. Danach `python3 tools/quality_gate.py` fahren; erst bei Grün ist die Arbeit fertig. Dem Nutzer am Ende sagen, welche Tests neu sind.
 
 ## Aufbau
 
@@ -19,7 +20,8 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 |------|--------|
 | `index.html`, `css/app.css` | Seite und Layout (auch Rechts-nach-links für Hebräisch) |
 | `js/app.js` | Ablauf: Geräte-Einrichtung (iOS-Gerätetypen, Karten-Abgleich für Android), Personen, Setup-Check, Kalibrierung, Messung, Ergebnis, Export |
-| `js/analysis.js` | Auswertung ohne DOM (Gain, Asymmetrie, Kalibrierung); Tests in `test/` |
+| `js/analysis.js` | Auswertung ohne DOM (Gain, Asymmetrie, Kalibrierung) |
+| `test/`, `tools/quality_gate.py` | Test-Engine (`engine.js`), Modultests (`*.test.js`, gestartet über `run.js`), Quality-Gate; Doku in `test/README.md` |
 | `js/stage.js`, `js/charts.js`, `js/tracker.js`, `js/store.js` | Muster/Figuren, Diagramme, Gesichtserkennung, Speicher |
 | `js/eyetrace.js`, `js/eyeview.js` | Augenspur: Gesichtspunkte der Augen je Bild speichern (`eyeTrace` in der Messung, keine Bilder), Grad/mm berechnen; Anzeige mit vergrößerten Augen, Strichen und Kurve (Freemium Standbild, Studien Abspielen). In Texten „Mitgleiten“/„Rücksprung“, nie „Nystagmus“; Tests in `test/eyetrace.test.js` |
 | `js/edition.js`, `config/editions.json`, `tools/new_code.py` | Versionen Freemium (nichts speichern) und Studien (Freischaltung per Code; im Repo nur SHA-256-Prüfsummen, nie Codes im Klartext) |
@@ -28,9 +30,11 @@ Statische Seite ohne Build-Schritt, veröffentlicht über GitHub Pages: https://
 | `tools/`, `.githooks/` | Geheimnis-Wächter (siehe unten) |
 | `vendor/` | Fremde Dateien lokal (DSGVO): Schriften IBM Plex, Chart.js, MediaPipe mit Modell; Versionen und Lizenzen in `vendor/README.md`. Keine Google Fonts und keine CDNs wieder einbauen |
 
-## Veröffentlichen
+## Veröffentlichen (Quality-Gate, verbindlich)
 
-1. Tests: `/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -m test/analysis.test.js` und `… -m test/eyetrace.test.js`
+**Vor jeder Veröffentlichung müssen alle Prüfungen grün sein:** `python3 tools/quality_gate.py` (Tests, Syntax, Sprachdateien, Versionsnummer, Verweise, Datenschutz, Wortwahl, Freischaltung, Anleitung, Lizenzen, Geheimnisse; Beschreibung in `test/README.md`). Es läuft automatisch vor jedem `git push` (`.githooks/pre-push`) und stoppt den Push bei Rot. Claude führt es zusätzlich selbst aus, bevor es Commit und Push vorschlägt, und meldet das Ergebnis. Bei Rot: Fehler beheben, nie die Prüfung abschwächen oder umgehen. `tools/quality_gate.py`, `test/engine.js` und `.githooks/pre-push` nur auf ausdrücklichen Wunsch des Nutzers lockern.
+
+1. Neue Funktion → im selben Schritt Tests in `test/*.test.js` ergänzen (in `test/run.js` eintragen).
 2. Versionsnummer `?v=` in `index.html` und in allen `import`-Zeilen unter `js/` erhöhen (sonst lädt Safari alte Dateien gemischt). Die Sprachdateien übernehmen sie automatisch.
 3. Neue Texte in **allen** Dateien unter `lang/` ergänzen. Die feste Anweisung (`instruction`) nie ohne Rückfrage ändern.
 4. Ändert sich die Bedienung, die Anleitung `docs/guide_*.md` in allen Sprachen anpassen und die `.docx` neu erzeugen:
